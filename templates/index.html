@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PseudoAleatorios Studio — Suite de Simulación Digital</title>
+
+  <!-- Fuentes Tipográficas Modernas -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Iconos FontAwesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Estilos del Studio -->
+  <link rel="stylesheet" href="/static/css/style.css?v=30">
+
+  <!-- Chart.js para visualización de dispersión -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <div class="app-shell">
+
+    <!-- 1. BARRA SUPERIOR (TOP NAVBAR) -->
+    <header class="top-navbar">
+      <div class="brand-section">
+        <div class="brand-icon-wrapper">
+          <i class="fa-solid fa-shapes"></i>
+        </div>
+        <div class="brand-meta">
+          <div class="brand-title">
+            <span>PseudoAleatorios</span>
+            <span class="brand-badge">Studio 2.0</span>
+          </div>
+          <span class="brand-subtitle">Simulación Digital & Generadores de Números Pseudoaleatorios</span>
+        </div>
+      </div>
+
+      <div class="nav-actions-right">
+        <div class="engine-status-pill">
+          <span class="status-dot"></span>
+          <span>Motor PRNG Activo</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 2. SELECTOR DE MÉTODOS (SEGMENTED PILLS RIBBON SIN FÓRMULAS) -->
+    <nav class="methods-bar-wrapper" aria-label="Métodos de Generación">
+      <div class="methods-pill-group" role="tablist">
+
+        <button class="method-tab-btn active" data-method="congruencial_mixto" id="tab-gclm">
+          <i class="fa-solid fa-diagram-project method-tab-icon"></i>
+          <span class="method-title">Congruencial Mixto</span>
+        </button>
+
+        <button class="method-tab-btn" data-method="congruencial_multiplicativo" id="tab-gcm">
+          <i class="fa-solid fa-calculator method-tab-icon"></i>
+          <span class="method-title">Congruencial Multiplicativo</span>
+        </button>
+
+        <button class="method-tab-btn" data-method="cuadrados_medios" id="tab-cm">
+          <i class="fa-solid fa-square-root-variable method-tab-icon"></i>
+          <span class="method-title">Cuadrados Medios</span>
+        </button>
+
+        <button class="method-tab-btn" data-method="productos_medios" id="tab-pm">
+          <i class="fa-solid fa-arrows-split-up-and-left method-tab-icon"></i>
+          <span class="method-title">Productos Medios</span>
+        </button>
+
+        <button class="method-tab-btn" data-method="blum_blum_shub" id="tab-bbs">
+          <i class="fa-solid fa-shield-halved method-tab-icon"></i>
+          <span class="method-title">Blum Blum Shub (BBS)</span>
+        </button>
+
+      </div>
+    </nav>
+
+    <!-- 3. ESPACIO DE TRABAJO (WORKBENCH GRID) -->
+    <main class="workbench-container">
+
+      <!-- COLUMNA IZQUIERDA: CONFIGURACIÓN Y DIAGNÓSTICO -->
+      <aside class="workbench-sidebar">
+
+        <div class="studio-panel">
+
+          <div class="panel-header-row">
+            <div class="panel-title">
+              <i class="fa-solid fa-sliders"></i>
+              <span>Configuración</span>
+            </div>
+            <button type="button" class="panel-action-link" id="btn-quick-reset" title="Restablecer valores">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+          </div>
+
+          <!-- Contexto del Algoritmo Activo -->
+          <div class="algorithm-context-box" id="algo-context-box">
+            <div class="algo-header">
+              <span class="algo-name" id="algo-context-name">Congruencial Mixto</span>
+              <span class="algo-badge" id="algo-context-tag">Hull-Dobell</span>
+            </div>
+            <div class="algo-formula-display" id="algo-context-formula">
+              X_{i+1} = (a × X_i + c) mod m
+            </div>
+          </div>
+
+          <!-- Formulario de Entradas Dinámicas -->
+          <form id="prng-form" onsubmit="event.preventDefault();">
+            <div class="inputs-grid" id="dynamic-inputs-container">
+              <!-- Inputs inyectados dinámicamente -->
+            </div>
+          </form>
+
+          <!-- Selector de Caso para GCM (Potencia de 2 vs Primo) -->
+          <div class="case-pill-group" id="gcm-case-selector" style="display: none;" role="radiogroup" aria-label="Caso GCM">
+            <button type="button" class="case-pill active" data-case="pow2" title="Genera m = 2^g con periodo maximal N = m/4">
+              Potencia 2 (N = m/4)
+            </button>
+            <button type="button" class="case-pill" data-case="prime" title="Genera m primo con periodo maximal N = m-1">
+              Módulo Primo (N = m−1)
+            </button>
+          </div>
+
+          <!-- Diagnóstico de Integridad Matemática (Checklist) -->
+          <div class="theorem-checklist-box" id="theorem-checklist-box">
+            <div class="checklist-header">
+              <span class="checklist-title">
+                <i class="fa-solid fa-microchip"></i> Diagnóstico Teórico
+              </span>
+            </div>
+            <div class="checklist-items-container" id="theorem-checklist-items">
+              <!-- Items de validación reactiva -->
+            </div>
+          </div>
+
+          <!-- Matriz de Acciones -->
+          <div class="form-actions-matrix">
+            <button type="button" class="btn-primary" id="btn-generate">
+              <i class="fa-solid fa-bolt"></i> Generar Secuencia
+            </button>
+
+            <div class="actions-row-secondary">
+              <button type="button" class="btn-secondary" id="btn-random-optimal" title="Genera parámetros válidos óptimos según teoremas algebraicos">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Aleatorios Válidos
+              </button>
+              <button type="button" class="btn-secondary" id="btn-reset-form" title="Restablecer valores iniciales">
+                <i class="fa-solid fa-arrow-rotate-left"></i> Restablecer
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </aside>
+
+      <!-- COLUMNA DERECHA: RESULTADOS, GRÁFICA Y ANÁLISIS -->
+      <section class="workbench-main">
+
+        <!-- Hero Ribbon de Métricas Clave -->
+        <div class="insights-hero-card">
+          <div class="results-meta-group">
+            <h2 class="results-method-heading" id="current-results-method-name">Congruencial Lineal Mixto</h2>
+            <p class="results-summary-text" id="current-results-summary">Secuencia calculada correctamente.</p>
+          </div>
+
+          <div class="results-kpi-group">
+            <div class="kpi-chip">
+              <span class="kpi-value" id="kpi-count">50</span>
+              <span class="kpi-label" id="kpi-count-sub">Valores Generados</span>
+            </div>
+            <button type="button" class="btn-export-excel" id="btn-export-excel" title="Descargar libro Excel .xlsx completo con fórmulas nativas">
+              <i class="fa-solid fa-file-excel"></i> Exportar Excel (.xlsx)
+            </button>
+          </div>
+        </div>
+
+        <!-- Pestañas de Visualización y Análisis -->
+        <div class="workspace-tabs-card">
+
+          <div class="viz-tabs-navigation" role="tablist">
+            <button class="viz-tab-btn active" data-viz="scatter" id="btn-viz-scatter">
+              <i class="fa-solid fa-chart-line"></i> Gráfica de Independencia (R_i vs R_{i+1})
+            </button>
+            <button class="viz-tab-btn" data-viz="table" id="btn-viz-table">
+              <i class="fa-solid fa-table-list"></i> Tabla Paso a Paso
+            </button>
+            <button class="viz-tab-btn" data-viz="bitstream" id="btn-viz-bitstream" style="display: none;">
+              <i class="fa-solid fa-terminal"></i> Flujo Binario Criptográfico
+            </button>
+          </div>
+
+          <!-- Panel 1: Gráfica de Independencia / Dispersión (Lag-1) -->
+          <div class="tab-content-panel active" id="panel-viz-scatter">
+            <div class="analytics-info-banner">
+              <i class="fa-solid fa-circle-info"></i>
+              <div>
+                <h4>Dispersión de Retardo Lag-1 (Independencia Estocástica)</h4>
+                <p>
+                  Representa cada par consecutivo (R_i, R_{i+1}) en el plano unitario [0, 1) × [0, 1). La distribución homogénea sin líneas diagonales ni cúmulos periódicos valida la independencia estocástica de los números generados.
+                </p>
+              </div>
+            </div>
+            <div class="chart-container-studio">
+              <canvas id="chart-independence-scatter"></canvas>
+            </div>
+          </div>
+
+          <!-- Panel 2: Tabla de Iteraciones Detallada -->
+          <div class="tab-content-panel" id="panel-viz-table">
+            <div class="table-toolbar-studio">
+              <span class="table-stats-badge" id="table-row-count-label">50 iteraciones calculadas</span>
+            </div>
+            <div class="table-wrapper-studio">
+              <table class="custom-table-studio" id="results-data-table">
+                <thead id="results-table-head">
+                  <!-- Cabeceras dinámicas -->
+                </thead>
+                <tbody id="results-table-body">
+                  <!-- Filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Panel 3: Flujo de Bits Criptográficos (BBS) -->
+          <div class="tab-content-panel" id="panel-viz-bitstream">
+            <div class="bitstream-container-studio">
+              <div class="analytics-info-banner">
+                <i class="fa-solid fa-shield-halved"></i>
+                <div>
+                  <h4>Secuencia de Bits Criptográficos Blum Blum Shub</h4>
+                  <p>
+                    Bits de paridad b_i = X_i mod 2 extraídos iterativamente de la congruencia cuadrática modular.
+                  </p>
+                </div>
+              </div>
+              <div class="bitstream-balance-bar-wrapper">
+                <span class="bitstream-balance-text" id="bbs-bit-balance-label">Balance: 26 unos (52.0%), 24 ceros (48.0%)</span>
+                <button type="button" class="btn-copy-bits" id="btn-copy-bitstream">
+                  <i class="fa-regular fa-copy"></i> Copiar Bits
+                </button>
+              </div>
+              <div class="bitstream-terminal-box" id="bbs-bitstream-content">
+                <!-- Bits -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- 4. FOOTER CREDITS -->
+    <footer class="app-footer-studio">
+      <div class="footer-inner-credits">
+        <span class="footer-author-pill"><strong>Adrian Alberto Angulo Melgarejo</strong> · 0222310042</span>
+        <span class="footer-divider-dot">•</span>
+        <span class="footer-author-pill"><strong>Samuel David Molina Romero</strong> · 0222310022</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Formulario Oculto para Descargas Nativas de Excel -->
+  <form id="excel-download-form" method="GET" action="" style="display: none;"></form>
+
+  <!-- Contenedor Toast -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Script Principal Studio -->
+  <script src="/static/js/studio.js?v=200"></script>
+
+</body>
+</html>

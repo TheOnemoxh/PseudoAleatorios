@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación - Validación Multiteoría</title>
+    
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap');
+        
+        :root {
+            --bg: #EBF4EE;
+            --card-bg: #FFFFFF;
+            --primary: #22C55E;
+            --primary-hover: #4ade80;
+            --secondary: #fde047;
+            --accent: #c4b5fd;
+            --text: #000000;
+            --border: 3px solid #000;
+            --shadow: 8px 8px 0px 0px #000;
+            --shadow-hover: 10px 10px 0px 0px #000;
+            --shadow-sm: 4px 4px 0px 0px #000;
+            --radius-lg: 1.5rem;
+            --radius-md: 1rem;
+            --radius-sm: 0.75rem;
+            --transition: all 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Outfit', system-ui, sans-serif;
+            background-color: var(--bg);
+            background-image: radial-gradient(#cbd5e1 3px, transparent 3px);
+            background-size: 32px 32px;
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 3rem; 
+        }
+
+        header { 
+            text-align: center; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 1rem; 
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 5vw, 4.5rem); 
+            font-weight: 900; 
+            text-transform: uppercase;
+            letter-spacing: -0.05em; 
+            background: var(--card-bg); 
+            padding: 0.75rem 2.5rem;
+            border: 4px solid #000; 
+            border-radius: var(--radius-md); 
+            box-shadow: var(--shadow);
+            transform: rotate(-1.5deg);
+        }
+
+        .subtitle {
+            font-size: 1.25rem; 
+            font-weight: 800; 
+            background: var(--accent); 
+            padding: 0.5rem 2rem;
+            border: var(--border); 
+            border-radius: 9999px; 
+            box-shadow: var(--shadow-sm); 
+            transform: rotate(1deg);
+        }
+
+        .main-grid { 
+            display: grid; 
+            grid-template-columns: 1fr; 
+            gap: 2.5rem; 
+        }
+
+        @media(min-width: 992px) { 
+            .main-grid { grid-template-columns: 5fr 7fr; } 
+        }
+        
+        .col-left { display: flex; flex-direction: column; gap: 2.5rem; }
+        .col-right { display: flex; flex-direction: column; gap: 2.5rem; }
+
+        .card {
+            background: var(--card-bg); 
+            border: var(--border); 
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow); 
+            padding: 2.5rem; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 2rem;
+        }
+        
+        .card-diag {
+            background: #dcfce3; 
+            border: 4px solid #000;
+        }
+        
+        .card-title {
+            font-size: 1.5rem; 
+            font-weight: 900; 
+            text-transform: uppercase;
+            border-bottom: 4px solid #000; 
+            padding-bottom: 1rem; 
+            letter-spacing: 0.05em;
+        }
+
+        .card-formula {
+            background: #e9d5ff; 
+            border: var(--border); 
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm); 
+            padding: 1.5rem; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.5rem;
+        }
+        
+        .card-formula .card-title {
+            border-bottom: 2px solid #000;
+            padding-bottom: 0.5rem;
+            font-size: 1.1rem;
+            margin-bottom: 0;
+        }
+        
+        .formula-container {
+            text-align: center;
+            font-size: 2rem;
+            overflow-x: auto;
+            padding: 1rem 0;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .methods-container { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+        
+        .pill {
+            background: var(--card-bg); 
+            border: var(--border); 
+            border-radius: 9999px;
+            padding: 0.75rem 1.25rem; 
+            font-family: inherit; 
+            font-weight: 800; 
+            font-size: 0.9rem;
+            text-transform: uppercase; 
+            cursor: pointer; 
+            box-shadow: var(--shadow-sm); 
+            transition: var(--transition);
+        }
+        
+        .pill:hover { 
+            transform: translate(-2px, -2px); 
+            box-shadow: 6px 6px 0px 0px #000; 
+        }
+        
+        .pill.active { 
+            background: var(--primary); 
+            transform: translate(2px, 2px); 
+            box-shadow: 1px 1px 0px 0px #000; 
+        }
+
+        .inputs-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); 
+            gap: 1.5rem; 
+        }
+        
+        .input-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        
+        .input-group label { 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            font-size: 0.85rem; 
+            letter-spacing: 0.05em; 
+            margin-left: 0.25rem; 
+        }
+        
+        .input-group input {
+            font-family: inherit; 
+            font-size: 1.25rem; 
+            font-weight: 800; 
+            padding: 0.75rem 1rem;
+            border: var(--border); 
+            border-radius: var(--radius-sm); 
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition); 
+            width: 100%;
+        }
+        
+        .input-group input:focus { 
+            outline: none; 
+            background: #fef08a; 
+            transform: translate(-2px, -2px); 
+            box-shadow: 6px 6px 0px 0px #000; 
+        }
+
+        .btn-primary {
+            background: var(--primary); 
+            border: var(--border); 
+            border-radius: var(--radius-md);
+            padding: 1.25rem 2rem; 
+            font-family: inherit; 
+            font-size: 1.5rem; 
+            font-weight: 900;
+            text-transform: uppercase; 
+            letter-spacing: 0.1em; 
+            cursor: pointer; 
+            box-shadow: var(--shadow);
+            transition: var(--transition); 
+            margin-top: 1rem; 
+            width: 100%;
+        }
+        
+        .btn-primary:hover { 
+            transform: translate(-2px, -2px); 
+            box-shadow: var(--shadow-hover); 
+            background: var(--primary-hover); 
+        }
+        
+        .btn-primary:active { 
+            transform: translate(4px, 4px); 
+            box-shadow: 0px 0px 0px 0px #000; 
+        }
+
+        .btn-secondary {
+            background: #60A5FA; 
+            border: var(--border); 
+            border-radius: var(--radius-md);
+            padding: 0.75rem 1.5rem; 
+            font-family: inherit; 
+            font-size: 1rem; 
+            font-weight: 900;
+            text-transform: uppercase; 
+            cursor: pointer; 
+            box-shadow: var(--shadow-sm); 
+            transition: var(--transition);
+            display: inline-flex; 
+            align-items: center; 
+            gap: 0.5rem;
+        }
+        
+        .btn-secondary:hover { 
+            transform: translate(-2px, -2px); 
+            box-shadow: 6px 6px 0px 0px #000; 
+            background: #3B82F6; 
+        }
+        
+        .btn-secondary:active { 
+            transform: translate(2px, 2px); 
+            box-shadow: 0px 0px 0px 0px #000; 
+        }
+
+         
+        .badge-status { 
+            display: inline-block; 
+            padding: 0.5rem 1.25rem; 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            border: var(--border); 
+            border-radius: 9999px; 
+            box-shadow: var(--shadow-sm); 
+            font-size: 0.85rem; 
+            letter-spacing: 0.05em;
+            margin-bottom: 1.5rem;
+        }
+        .badge-success { background-color: var(--primary); }
+        .badge-error { background-color: #fee2e2; }
+        .badge-wait { background-color: #e5e7eb; }
+        
+        .diag-section-title { 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            font-size: 0.9rem; 
+            opacity: 0.8; 
+            margin-bottom: 0.5rem; 
+            display: block; 
+        }
+        
+        .max-period-box { 
+            font-family: monospace; 
+            font-weight: 900; 
+            font-size: 1.25rem; 
+            background: #fff; 
+            border: var(--border); 
+            padding: 0.75rem 1rem; 
+            box-shadow: var(--shadow-sm); 
+            display: inline-block; 
+            border-radius: 0.5rem; 
+            margin-bottom: 1.5rem;
+        }
+        
+        .checks-list { 
+            list-style: none; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.75rem; 
+            margin-bottom: 1.5rem; 
+        }
+        
+        .checks-list li { 
+            display: flex; 
+            align-items: flex-start; 
+            gap: 0.75rem; 
+            background: #fff; 
+            padding: 0.75rem; 
+            border: var(--border); 
+            border-radius: 0.5rem; 
+            box-shadow: 2px 2px 0px 0px #000; 
+            font-weight: 800; 
+        }
+        
+        .icon-pass { color: var(--primary); font-weight: 900; font-size: 1.2rem; line-height: 1; }
+        .icon-fail { color: #ef4444; font-weight: 900; font-size: 1.2rem; line-height: 1; }
+        
+        .recommendations-box { 
+            background: #fef08a; 
+            border: var(--border); 
+            padding: 1.25rem; 
+            border-radius: 0.75rem; 
+            box-shadow: var(--shadow-sm); 
+        }
+        .recommendations-box.hidden { display: none; }
+        .recommendations-box h3 { 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            font-size: 0.9rem; 
+            margin-bottom: 0.5rem; 
+        }
+        .recommendations-box ul { 
+            padding-left: 1.5rem; 
+            font-weight: 800; 
+            font-size: 0.9rem; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.25rem; 
+        }
+
+         
+        .table-header-row { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 4px solid #000; 
+            padding-bottom: 1.5rem; 
+            flex-wrap: wrap; 
+            gap: 1rem; 
+        }
+        .table-header-row .card-title { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+        
+        .table-container { 
+            border: var(--border); 
+            border-radius: var(--radius-md); 
+            overflow: auto; 
+            max-height: 480px; 
+            box-shadow: inset 4px 4px 0px 0px rgba(0,0,0,0.05); 
+            background: #fff; 
+        }
+        
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        thead { position: sticky; top: 0; background: var(--secondary); z-index: 10; border-bottom: 4px solid #000;}
+        th { padding: 1.25rem 1rem; font-weight: 900; font-size: 1.15rem; text-transform: uppercase; border-right: var(--border); }
+        th:last-child { border-right: none; }
+        td { padding: 1rem; font-weight: 700; font-family: monospace; font-size: 1.15rem; border-bottom: 2px solid #000; border-right: 2px solid #000; }
+        td:last-child { border-right: none; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: rgba(0,0,0,0.03); }
+        .empty-state { padding: 4rem 2rem; text-align: center; font-weight: 800; font-size: 1.25rem; color: #64748b; }
+        
+        .vis-row { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 900px; gap: 0.5rem; }
+        .vis-label { width: 6rem; flex-shrink: 0; text-align: left; font-weight: 900; font-size: 0.85rem; }
+        .bits-container { display: flex; gap: 1px; flex: 1; justify-content: center; overflow: hidden; }
+        .bit-box { 
+            width: 18px; height: 24px; display: flex; align-items: center; justify-content: center;
+            border: 1px solid #000; font-family: monospace; font-weight: 900; font-size: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        .bit-0 { background: #fff; color: #000; }
+        .bit-1 { background: #000; color: #fff; }
+        .bit-diff { background: #22C55E; color: #000; border-color: #000; transform: scale(1.1); box-shadow: 1px 1px 0px 0px #000; z-index: 10; }
+        .bit-pad { background: #fee2e2; color: #ef4444; border-color: #ef4444; }
+        .dec-val { font-family: monospace; font-weight: 900; font-size: 0.95rem; width: 8rem; flex-shrink: 0; white-space: nowrap; text-align: right; }
+
+        svg { width: 24px; height: 24px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Simulación</h1>
+        <div class="subtitle">Motor de Validación Multiteoría</div>
+    </header>
+
+    <div class="main-grid">
+        
+        <div class="col-left">
+            <div class="card">
+                <div class="card-title">1. Seleccionar Método</div>
+                <div class="methods-container">
+                    <button class="pill active" data-method="mixto" onclick="setMethod('mixto')">Lineal Mixto</button>
+                    <button class="pill" data-method="multiplicativo" onclick="setMethod('multiplicativo')">Multiplicativo</button>
+                    <button class="pill" data-method="cuadratico" onclick="setMethod('cuadratico')">Cuadrático</button>
+                    <button class="pill" data-method="bbs" onclick="setMethod('bbs')">BBS</button>
+                    <button class="pill" data-method="xorshift" onclick="setMethod('xorshift')">Xorshift</button>
+                </div>
+            </div>
+
+            <div class="card-formula">
+                <div class="card-title">Fórmula del Método</div>
+                <div id="formula-container" class="formula-container">Cargando fórmula...</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">2. Parámetros</div>
+                <div id="xorshift-banner" style="display: none; background: #DBEAFE; border: 2px solid #000; border-radius: 0.5rem; padding: 0.75rem; box-shadow: 2px 2px 0px 0px #000; margin-bottom: 1.5rem; font-size: 0.875rem; font-weight: 700; color: #1E3A8A; line-height: 1.4;">
+                    <span style="font-size: 1.1rem; margin-right: 0.25rem;">ℹ️</span> Arquitectura de 32 bits: Este motor evalúa la primitividad matricial y genera la secuencia operando estrictamente bajo un límite de 32 bits. Los desplazamientos deben estar adaptados a esta longitud.
+                </div>
+                <div id="inputs-container" class="inputs-grid">
+                    
+                </div>
+                <button onclick="validateAndGenerate()" class="btn-primary">Validar y Generar</button>
+            </div>
+        </div>
+
+        
+        <div class="col-right">
+            <div class="card card-diag" style="flex: 1;">
+                <div class="card-title" id="diagnostic-title">DIAGNÓSTICO MATEMÁTICO</div>
+                
+                <div id="validation-status-container">
+                    <span class="badge-status badge-wait" id="validation-badge">Esperando parámetros...</span>
+                </div>
+                
+                <div>
+                    <span class="diag-section-title">Periodo Teórico Máximo:</span>
+                    <div class="max-period-box" id="max-period">N/A</div>
+                </div>
+
+                <div>
+                    <span class="diag-section-title">Reglas Evaluadas:</span>
+                    <ul class="checks-list" id="validation-checks">
+                        <li style="color: #64748b;">Selecciona un método para iniciar validación.</li>
+                    </ul>
+                </div>
+
+                <div class="recommendations-box hidden" id="recommendations-container">
+                    <h3>💡 Sugerencias del Autor:</h3>
+                    <ul id="recommendations"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <div id="xorshift-visualizer" class="card" style="display: none; background: #FEF3C7; padding: 2.5rem;">
+        <div class="card-title">Visualizador Binario de Xorshift</div>
+        
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: center; flex-wrap: wrap;">
+            <button id="btn-step-1" class="btn-secondary" style="background: #3B82F6; color: white;" onclick="animStep(1)">▶ Animar Paso 1 (X ^ (X &lt;&lt; a))</button>
+            <button id="btn-step-2" class="btn-secondary" style="background: #e5e7eb; color: #9ca3af; cursor: not-allowed;" onclick="animStep(2)" disabled>▶ Animar Paso 2 (X ^ (X &gt;&gt; b))</button>
+            <button id="btn-step-3" class="btn-secondary" style="background: #e5e7eb; color: #9ca3af; cursor: not-allowed;" onclick="animStep(3)" disabled>▶ Animar Paso 3 (X ^ (X &lt;&lt; c))</button>
+            <button class="btn-secondary" style="background: #fff;" onclick="animReset()">↺ Reset</button>
+        </div>
+
+        <div style="background: #fff; border: 3px solid #000; box-shadow: 4px 4px 0px 0px #000; border-radius: 1rem; padding: 1.5rem; margin-top: 2rem; max-width: 900px; margin-left: auto; margin-right: auto;">
+            <h3 style="font-weight: 900; font-size: 1.1rem; border-bottom: 2px solid #000; padding-bottom: 0.5rem; margin-bottom: 1rem;">QUÉ ESTÁ SUCEDIENDO:</h3>
+            <p id="xorshift-explanation" style="font-weight: 700; font-size: 1.1rem; min-height: 3rem;">Haz clic en el Paso 1 para comenzar. Usaremos el desplazamiento 'a' para mover los bits hacia la izquierda.</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 2.5rem; align-items: center; width: 100%; padding-bottom: 1rem;">
+            <div class="vis-row">
+                <span class="vis-label">ESTADO (X):</span>
+                <div class="bits-container" id="bits-state"></div>
+                <span class="dec-val" id="dec-state"></span>
+            </div>
+            <div class="vis-row">
+                <span class="vis-label" id="shift-label">SHIFT:</span>
+                <div class="bits-container" id="bits-shift"></div>
+                <span class="dec-val" id="dec-shift"></span>
+            </div>
+            <div class="vis-row">
+                <span class="vis-label">RESULTADO:</span>
+                <div class="bits-container" id="bits-result"></div>
+                <span class="dec-val" id="dec-result"></span>
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+        <div style="padding: 2.5rem; display: flex; flex-direction: column; gap: 2rem; flex: 1;">
+            <div class="table-header-row">
+                <div class="card-title">3. Vista Previa</div>
+                <button onclick="exportExcel()" class="btn-secondary">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Descargar Excel
+                </button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 80px; text-align: center;">i</th>
+                            <th>X_i</th>
+                            <th id="header-ri">R_i</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body">
+                        <tr>
+                            <td colspan="3">
+                                <div class="empty-state">Los resultados aparecerán aquí.</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+    </div>
+    
+    
+    <div style="background: #FFF; border: 2px solid #000; border-radius: 0.5rem; padding: 1.5rem; box-shadow: 4px 4px 0px 0px #000; margin-top: 1rem; text-align: center; font-weight: 800; color: #1e293b;">
+        Desarrollado con ♥ por <a href="https://github.com/Crisiszzz07" target="_blank" style="color: #2563eb; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">@Crisiszzz07</a> & <a href="https://github.com/7val07" target="_blank" style="color: #2563eb; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">@7val07</a>
+    </div>
+</div>
+
+<script>
+    let currentMethod = 'mixto';
+
+    const configs = {
+        mixto: { seed: 4, a: 5, c: 7, m: 8, n: 20 },
+        multiplicativo: { seed: 5, a: 5, m: 8, n: 20 },
+        cuadratico: { seed: 4, d: 2, a: 5, c: 7, m: 8, n: 20 },
+        bbs: { seed: 3, p: 11, q: 19, n: 20 },
+        xorshift: { seed: 123456789, a: 13, b: 17, c: 5, n: 20 }
+    };
+
+    function renderInputs() {
+        const container = document.getElementById('inputs-container');
+        container.innerHTML = '';
+        const config = configs[currentMethod];
+        
+        Object.keys(config).forEach(key => {
+            const div = document.createElement('div');
+            div.className = 'input-group';
+            
+            const label = document.createElement('label');
+            label.innerText = key === 'seed' ? 'Semilla (X0)' : key === 'n' ? 'N (Cant.)' : key;
+            
+            const input = document.createElement('input');
+            input.type = key === 'seed' ? 'text' : 'number';
+            input.value = config[key];
+            input.id = 'input-' + key;
+            
+            input.oninput = (e) => {
+                configs[currentMethod][key] = key === 'seed' ? Number(e.target.value) || 0 : Number(e.target.value);
+                validate();
+                if(currentMethod === 'xorshift') animReset();
+            };
+            
+            div.appendChild(label);
+            div.appendChild(input);
+            container.appendChild(div);
+        });
+        
+        validate();
+    }
+
+    const formulas = {
+        mixto: 'X_{i+1} = (aX_i + c) \\pmod m',
+        multiplicativo: 'X_{i+1} = (aX_i) \\pmod m',
+        cuadratico: 'X_{i+1} = (dX_i^2 + aX_i + c) \\pmod m',
+        bbs: 'X_{i+1} = X_i^2 \\mod m',
+        xorshift: '\\begin{aligned} x &\\gets x \\oplus (x \\ll a) \\\\ x &\\gets x \\oplus (x \\gg b) \\\\ x &\\gets x \\oplus (x \\ll c) \\end{aligned}'
+    };
+
+    function updateFormula() {
+        const formulaStr = formulas[currentMethod];
+        const container = document.getElementById('formula-container');
+        if (window.katex) {
+            katex.render(formulaStr, container, {
+                throwOnError: false,
+                displayMode: true
+            });
+        } else {
+            container.innerText = formulaStr;
+        }
+    }
+
+    const autores = {
+        "mixto": "HULL-DOBELL / COSS BU",
+        "multiplicativo": "COSS BU",
+        "cuadratico": "D. E. KNUTH",
+        "bbs": "BLUM, BLUM & SHUB",
+        "xorshift": "MARSAGLIA / NUMERICAL RECIPES"
+    };
+
+    function setMethod(method) {
+        currentMethod = method;
+        document.querySelectorAll('.pill').forEach(el => {
+            if(el.dataset.method === method) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        });
+        
+        if (method === 'xorshift') {
+            document.getElementById('xorshift-visualizer').style.display = 'flex';
+            document.getElementById('xorshift-banner').style.display = 'block';
+            animReset();
+        } else {
+            document.getElementById('xorshift-visualizer').style.display = 'none';
+            document.getElementById('xorshift-banner').style.display = 'none';
+        }
+
+        document.getElementById('header-ri').innerText = method === 'bbs' ? 'R_i (Bit de Paridad)' : 'R_i';
+        document.getElementById('diagnostic-title').innerText = 'DIAGNÓSTICO: ' + autores[method];
+
+        renderInputs();
+        updateFormula();
+    }
+
+    async function validate() {
+        try {
+            const res = await fetch('/api/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ method: currentMethod, config: configs[currentMethod] })
+            });
+            if (!res.ok) throw new Error("Error en validación");
+            const data = await res.json();
+            
+            const badge = document.getElementById('validation-badge');
+            badge.className = 'badge-status ' + (data.valid ? 'badge-success' : 'badge-error');
+            badge.innerText = data.valid ? '✓ Periodo Completo Garantizado' : '✗ Periodo Incompleto / No Garantizado';
+
+            document.getElementById('max-period').innerText = data.max_period;
+
+            const checksUl = document.getElementById('validation-checks');
+            checksUl.innerHTML = '';
+            data.checks.forEach(chk => {
+                const li = document.createElement('li');
+                const icon = chk.passed 
+                    ? '<span class="icon-pass">✓</span>' 
+                    : '<span class="icon-fail">✗</span>';
+                li.innerHTML = `${icon} <span>${chk.rule}</span>`;
+                checksUl.appendChild(li);
+            });
+
+            const recContainer = document.getElementById('recommendations-container');
+            const recUl = document.getElementById('recommendations');
+            if (data.recommendations && data.recommendations.length > 0) {
+                recContainer.classList.remove('hidden');
+                recUl.innerHTML = '';
+                data.recommendations.forEach(r => {
+                    const li = document.createElement('li');
+                    li.innerText = r;
+                    recUl.appendChild(li);
+                });
+            } else {
+                recContainer.classList.add('hidden');
+            }
+        } catch (e) {
+            console.error('Validation Error', e);
+        }
+    }
+
+    async function generate() {
+        try {
+            const res = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ method: currentMethod, config: configs[currentMethod] })
+            });
+            if (!res.ok) throw new Error("Error en servidor");
+            const data = await res.json();
+            
+            const tbody = document.getElementById('results-body');
+            tbody.innerHTML = '';
+            data.data.forEach(row => {
+                const tr = document.createElement('tr');
+                const rValFormated = currentMethod === 'bbs' ? Math.round(row.r).toString() : row.r.toFixed(5);
+                
+                if (row.is_repeat) {
+                    tr.style.backgroundColor = '#FEF9C3';
+                    tr.style.fontWeight = '900';
+                    tr.innerHTML = `
+                        <td style="text-align: center;">${row.i}</td>
+                        <td style="color: #000;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span>${row.x}</span>
+                                <span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; margin-left: 1rem; font-size: 0.75rem; font-weight: 700; color: #991b1b; background-color: #FEE2E2; border: 2px solid #000; border-radius: 9999px; box-shadow: 2px 2px 0px 0px #000; white-space: nowrap;">🔄 Ciclo detectado</span>
+                            </div>
+                        </td>
+                        <td style="color: #000;">${rValFormated}</td>
+                    `;
+                } else {
+                    tr.innerHTML = `
+                        <td style="text-align: center;">${row.i}</td>
+                        <td style="color: #334155;">${row.x}</td>
+                        <td style="color: #2563eb;">${rValFormated}</td>
+                    `;
+                }
+                tbody.appendChild(tr);
+            });
+        } catch (e) {
+            alert('Error al generar: ' + e.message);
+        }
+    }
+
+    async function validateAndGenerate() {
+        await validate();
+        await generate();
+    }
+
+    async function exportExcel() {
+        try {
+            const activeConfig = configs[currentMethod];
+            Object.keys(activeConfig).forEach(key => {
+                const el = document.getElementById('input-' + key);
+                if (el) {
+                    activeConfig[key] = key === 'seed' ? Number(el.value) || 0 : Number(el.value);
+                }
+            });
+
+            const res = await fetch('/api/export', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ method: currentMethod, config: activeConfig })
+            });
+            if (!res.ok) throw new Error("Error al exportar");
+            
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'simulacion_aleatorios.xlsx';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch(e) {
+            alert('Error al exportar: ' + e.message);
+        }
+    }
+
+    
+    let currentXorshiftState = 0;
+    let currentXorshiftStep = 1;
+    
+    function toBin32(num) {
+        return (num >>> 0).toString(2).padStart(32, '0');
+    }
+
+    function renderBits(containerId, binStr, decVal = null, diffStr = null, padLen = 0, isRight = false) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        for (let i = 0; i < 32; i++) {
+            const div = document.createElement('div');
+            const bit = binStr[i] || '0';
+            div.innerText = bit;
+            div.className = `bit-box bit-${bit}`;
+            
+            if (diffStr && diffStr[i] === '1') {
+                div.classList.add('bit-diff');
+            }
+
+            if (padLen > 0) {
+                if ((isRight && i < padLen) || (!isRight && i >= 32 - padLen)) {
+                    div.classList.add('bit-pad');
+                }
+            }
+            
+            if (i > 0 && i % 8 === 0) {
+                div.style.marginLeft = '4px';
+            }
+            container.appendChild(div);
+        }
+        
+        const decSpan = document.getElementById(containerId.replace('bits', 'dec'));
+        if (decSpan) {
+            decSpan.innerText = decVal !== null ? `= ${decVal}` : '';
+        }
+    }
+
+    function updateButtons() {
+        for(let i=1; i<=3; i++) {
+            const btn = document.getElementById('btn-step-' + i);
+            if(btn) {
+                if(i === currentXorshiftStep) {
+                    btn.disabled = false;
+                    btn.style.background = '#3B82F6';
+                    btn.style.color = 'white';
+                    btn.style.cursor = 'pointer';
+                } else {
+                    btn.disabled = true;
+                    btn.style.background = '#e5e7eb';
+                    btn.style.color = '#9ca3af';
+                    btn.style.cursor = 'not-allowed';
+                }
+            }
+        }
+    }
+
+    function animReset() {
+        const cfg = configs['xorshift'];
+        if (!cfg) return;
+        currentXorshiftState = cfg.seed >>> 0;
+        const bin = toBin32(currentXorshiftState);
+        renderBits('bits-state', bin, currentXorshiftState);
+        document.getElementById('bits-shift').innerHTML = '';
+        document.getElementById('bits-result').innerHTML = '';
+        document.getElementById('dec-shift').innerText = '';
+        document.getElementById('dec-result').innerText = '';
+        document.getElementById('shift-label').innerText = 'SHIFT:';
+        document.getElementById('xorshift-explanation').innerText = "Haz clic en el Paso 1 para comenzar. Usaremos el desplazamiento 'a' para mover los bits hacia la izquierda.";
+        
+        currentXorshiftStep = 1;
+        updateButtons();
+    }
+
+    function animStep(step) {
+        if (step !== currentXorshiftStep) return;
+
+        const cfg = configs['xorshift'];
+        const X = currentXorshiftState >>> 0;
+        let shiftVal = 0;
+        let result = 0;
+        let padLen = 0;
+        let isRight = false;
+        let label = '';
+        let explanation = '';
+
+        if (step === 1) {
+            padLen = cfg.a;
+            isRight = false;
+            shiftVal = (X << cfg.a) >>> 0;
+            label = `X << ${cfg.a}`;
+            explanation = "Desplazamos los bits a la IZQUIERDA. Los espacios vacíos a la derecha se rellenan con ceros (en rojo). Al aplicar la operación XOR (^), los bits que son diferentes se invierten a 1 (en verde).";
+        } else if (step === 2) {
+            padLen = cfg.b;
+            isRight = true;
+            shiftVal = (X >>> cfg.b) >>> 0;
+            label = `X >> ${cfg.b}`;
+            explanation = "Desplazamos los bits a la DERECHA. Los espacios vacíos a la izquierda se rellenan con ceros. El operador XOR mezcla este nuevo estado con el anterior.";
+        } else if (step === 3) {
+            padLen = cfg.c;
+            isRight = false;
+            shiftVal = (X << cfg.c) >>> 0;
+            label = `X << ${cfg.c}`;
+            explanation = "Desplazamos los bits a la IZQUIERDA nuevamente. Este último XOR completa el triplete mágico generando el nuevo número pseudoaleatorio.";
+        }
+
+        result = (X ^ shiftVal) >>> 0;
+        const diffMask = toBin32((X ^ result) >>> 0);
+
+        document.getElementById('shift-label').innerText = label + ':';
+        document.getElementById('xorshift-explanation').innerText = explanation;
+        
+        renderBits('bits-state', toBin32(X), X);
+        renderBits('bits-shift', toBin32(shiftVal), shiftVal, null, padLen, isRight);
+        
+        setTimeout(() => {
+            renderBits('bits-result', toBin32(result), result, diffMask);
+            currentXorshiftState = result;
+            currentXorshiftStep = (step % 3) + 1;
+            updateButtons();
+        }, 100);
+    }
+
+    
+    renderInputs();
+    window.addEventListener('load', () => {
+        updateFormula();
+    });
+</script>
+</body>
+</html>
