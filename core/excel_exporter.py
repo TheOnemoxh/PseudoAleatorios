@@ -149,19 +149,19 @@ def _build_sheet1(ws, method: str, method_name: str, params: Dict[str, Any], ste
     headers = []
     ri_col_idx = 5
     if method in ["congruencial_mixto", "gclm"]:
-        headers = ["i", "X_i", "Operación (a × X_i + c)", "X_{i+1} = (aX_i+c) mod m", "R_i = X_i / m"]
+        headers = ["i", "X_{i-1}", "Operación (a × X_{i-1} + c)", "X_i = (aX_{i-1}+c) mod m", "R_i = X_i / m"]
         ri_col_idx = 5
     elif method in ["congruencial_multiplicativo", "gcm"]:
-        headers = ["i", "X_i", "Operación (a × X_i)", "X_{i+1} = (aX_i) mod m", "R_i = X_i / m"]
+        headers = ["i", "X_{i-1}", "Operación (a × X_{i-1})", "X_i = (aX_{i-1}) mod m", "R_i = X_i / m"]
         ri_col_idx = 5
     elif method in ["cuadrados_medios", "cm"]:
-        headers = ["i", "X_i", "Y_i = (X_i)²", "Y_i (Relleno 2D)", "Dígitos Centrales (X_{i+1})", "R_i = X_{i+1} / 10^D", "Estado"]
+        headers = ["i", "X_{i-1}", "Y_{i-1} = (X_{i-1})²", "Y_{i-1} (Relleno 2D)", "Dígitos Centrales (X_i)", "R_i = X_i / 10^D", "Estado"]
         ri_col_idx = 6
     elif method in ["productos_medios", "pm"]:
-        headers = ["i", "X_{i-1}", "X_i", "Y_i = X_{i-1} × X_i", "Y_i (Relleno 2D)", "Dígitos Centrales (X_{i+1})", "R_i = X_{i+1} / 10^D"]
+        headers = ["i", "X_{i-2}", "X_{i-1}", "Y_{i-1} = X_{i-2} × X_{i-1}", "Y_{i-1} (Relleno 2D)", "Dígitos Centrales (X_i)", "R_i = X_i / 10^D"]
         ri_col_idx = 7
     elif method in ["blum_blum_shub", "bbs"]:
-        headers = ["i", "X_i", "(X_i)²", "X_{i+1} = (X_i)² mod M", "Bit b_i (X_i mod 2)", "R_i = X_i / M"]
+        headers = ["i", "X_{i-1}", "Y_{i-1} = (X_{i-1})²", "X_i = Y_{i-1} mod M", "Bit b_i (X_i mod 2)", "R_i = X_i / M"]
         ri_col_idx = 6
 
     header_row = cur_row

@@ -39,9 +39,9 @@ def generate_gclm(X0: int, a: int, c: int, m: int, n: int = 50) -> Dict[str, Any
     cycle_info = {"has_cycle": False, "period": 0, "start_index": None}
 
     for i in range(1, n + 1):
-        ri = current_x / m
         next_mult = a * current_x + c
         next_x = next_mult % m
+        ri = next_x / m
 
         step_record = {
             "i": i,
@@ -115,9 +115,9 @@ def generate_gcm(X0: int, a: int, m: int, n: int = 50) -> Dict[str, Any]:
     cycle_info = {"has_cycle": False, "period": 0, "start_index": None}
 
     for i in range(1, n + 1):
-        ri = current_x / divisor
         next_mult = a * current_x
         next_x = next_mult % m
+        ri = next_x / divisor
 
         step_record = {
             "i": i,

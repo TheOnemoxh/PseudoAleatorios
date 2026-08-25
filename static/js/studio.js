@@ -791,15 +791,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Encabezados
     let headHtml = '<tr>';
     if (method === 'congruencial_mixto') {
-      headHtml += '<th>i</th><th>Xᵢ</th><th>(a × Xᵢ + c)</th><th>Xᵢ₊₁ = (aXᵢ+c) mod m</th><th>Rᵢ = Xᵢ / m</th>';
+      headHtml += '<th>i</th><th>Xᵢ₋₁</th><th>(a × Xᵢ₋₁ + c)</th><th>Xᵢ = (aXᵢ₋₁+c) mod m</th><th>Rᵢ = Xᵢ / m</th>';
     } else if (method === 'congruencial_multiplicativo') {
-      headHtml += '<th>i</th><th>Xᵢ</th><th>(a × Xᵢ)</th><th>Xᵢ₊₁ = (aXᵢ) mod m</th><th>Rᵢ = Xᵢ / m</th>';
+      headHtml += '<th>i</th><th>Xᵢ₋₁</th><th>(a × Xᵢ₋₁)</th><th>Xᵢ = (aXᵢ₋₁) mod m</th><th>Rᵢ = Xᵢ / m</th>';
     } else if (method === 'cuadrados_medios') {
-      headHtml += '<th>i</th><th>Xᵢ</th><th>Yᵢ = (Xᵢ)²</th><th>Yᵢ (Relleno 2D)</th><th>Cifras Centrales (Xᵢ₊₁)</th><th>Rᵢ = Xᵢ₊₁ / 10ᴰ</th><th>Estado</th>';
+      headHtml += '<th>i</th><th>Xᵢ₋₁</th><th>Yᵢ₋₁ = (Xᵢ₋₁)²</th><th>Yᵢ₋₁ (Relleno 2D)</th><th>Cifras Centrales (Xᵢ)</th><th>Rᵢ = Xᵢ / 10ᴰ</th><th>Estado</th>';
     } else if (method === 'productos_medios') {
-      headHtml += '<th>i</th><th>Xᵢ₋₁</th><th>Xᵢ</th><th>Yᵢ = Xᵢ₋₁ × Xᵢ</th><th>Yᵢ (Relleno 2D)</th><th>Cifras Centrales (Xᵢ₊₁)</th><th>Rᵢ = Xᵢ₊₁ / 10ᴰ</th>';
+      headHtml += '<th>i</th><th>Xᵢ₋₂</th><th>Xᵢ₋₁</th><th>Yᵢ₋₁ = Xᵢ₋₂ × Xᵢ₋₁</th><th>Yᵢ₋₁ (Relleno 2D)</th><th>Cifras Centrales (Xᵢ)</th><th>Rᵢ = Xᵢ / 10ᴰ</th>';
     } else if (method === 'blum_blum_shub') {
-      headHtml += '<th>i</th><th>Xᵢ</th><th>(Xᵢ)²</th><th>Xᵢ₊₁ = (Xᵢ)² mod M</th><th>Bit bᵢ (Xᵢ mod 2)</th><th>Rᵢ = Xᵢ / M</th>';
+      headHtml += '<th>i</th><th>Xᵢ₋₁</th><th>(Xᵢ₋₁)²</th><th>Xᵢ = (Xᵢ₋₁)² mod M</th><th>Bit bᵢ (Xᵢ mod 2)</th><th>Rᵢ = Xᵢ / M</th>';
     }
     headHtml += '</tr>';
     thead.innerHTML = headHtml;
