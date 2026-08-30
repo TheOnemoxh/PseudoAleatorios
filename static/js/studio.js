@@ -10,9 +10,22 @@ document.addEventListener('DOMContentLoaded', () => {
     currentMethod: 'congruencial_mixto',
     gcmCaseType: 'pow2',
     lastResult: null,
+    alpha: 0.05,
+    lastTests: null,
+    selectedTestId: 'promedio',
     charts: {
       scatter: null
     }
+  };
+
+  const TEST_SHORT_NAMES = {
+    promedio: 'Promedio',
+    frecuencia: 'Frecuencia',
+    distancia: 'Distancia',
+    series: 'Series',
+    kolmogorov_smirnov: 'Kolmogorov-Smirnov',
+    poker: 'Poker',
+    coleccionista: 'Coleccionista de Cupones'
   };
 
   // Metadatos de Contexto por Algoritmo
@@ -124,6 +137,21 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(() => showToast('No se pudo copiar automáticamente', 'error'));
         }
       });
+    }
+
+    // Selector de Nivel de Significancia (alpha) para las Pruebas Estadisticas
+    const inputAlpha = getEl('input-alpha');
+    const inputAlphaCustom = getEl('input-alpha-custom');
+    if (inputAlpha) {
+      inputAlpha.addEventListener('change', () => {
+        if (inputAlphaCustom) {
+          inputAlphaCustom.style.display = inputAlpha.value === 'custom' ? 'block' : 'none';
+        }
+        updateAlphaAndRetest();
+      });
+    }
+    if (inputAlphaCustom) {
+      inputAlphaCustom.addEventListener('input', () => updateAlphaAndRetest());
     }
 
     // Pestañas de Visualización (Scatter / Tabla / Bitstream)
@@ -624,6 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       updateResultsUI(result);
+      runStatisticalTests(result.numbers);
 
     } catch (err) {
       console.error('Error al generar:', err);
@@ -900,6 +929,251 @@ document.addEventListener('DOMContentLoaded', () => {
       toast.style.transition = '0.3s ease';
       setTimeout(() => toast.remove(), 300);
     }, 3200);
+  }
+
+  // =========================================================================
+  // PRUEBAS ESTADISTICAS DE ALEATORIEDAD (7 pruebas)
+  // =========================================================================
+
+  function getCurrentAlpha() {
+    const sel = getEl('input-alpha');
+    if (!sel) return 0.05;
+    if (sel.value === 'custom') {
+      const custom = getEl('input-alpha-custom');
+      let pct = parseFloat(custom ? custom.value : NaN);
+      if (!Number.isFinite(pct) || pct <= 0 || pct >= 100) pct = 5;
+      return pct / 100;
+    }
+    const val = parseFloat(sel.value);
+    return Number.isFinite(val) ? val : 0.05;
+  }
+
+  let alphaDebounceTimer = null;
+  function updateAlphaAndRetest() {
+    state.alpha = getCurrentAlpha();
+    clearTimeout(alphaDebounceTimer);
+    alphaDebounceTimer = setTimeout(() => {
+      if (state.lastResult && state.lastResult.numbers && state.lastResult.numbers.length) {
+        runStatisticalTests(state.lastResult.numbers);
+      }
+    }, 250);
+  }
+
+  async function runStatisticalTests(numbers) {
+    const summaryEl = getEl('tests-summary-card');
+    if (!numbers || !numbers.length) return;
+
+    state.alpha = getCurrentAlpha();
+
+    if (summaryEl) {
+      summaryEl.innerHTML = '<div class="tests-loading"><i class="fa-solid fa-spinner fa-spin"></i> Calculando las 7 pruebas estadísticas...</div>';
+    }
+
+    try {
+      const response = await fetch('/api/tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numbers, alpha: state.alpha })
+      });
+      const data = await response.json();
+      state.lastTests = data;
+
+      if (!data.success) {
+        renderTestsError((data.errors && data.errors[0]) || 'No se pudieron calcular las pruebas estadísticas.');
+        return;
+      }
+
+      renderTestsSummary(data);
+      renderTestsSelector(data.tests);
+
+      const stillExists = data.tests.some(t => t.id === state.selectedTestId);
+      const selected = stillExists ? data.tests.find(t => t.id === state.selectedTestId) : data.tests[0];
+      state.selectedTestId = selected.id;
+      renderTestDetail(selected);
+
+    } catch (err) {
+      console.error('Error al ejecutar pruebas estadísticas:', err);
+      renderTestsError('Error de conexión con el servidor al calcular las pruebas.');
+    }
+  }
+
+  function renderTestsError(message) {
+    const summaryEl = getEl('tests-summary-card');
+    if (summaryEl) {
+      summaryEl.innerHTML = `<div class="tests-error-banner"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(message)}</div>`;
+    }
+    const selectorEl = getEl('tests-selector-row');
+    if (selectorEl) selectorEl.innerHTML = '';
+    const detailEl = getEl('test-detail-panel');
+    if (detailEl) detailEl.innerHTML = '';
+  }
+
+  function renderTestsSummary(data) {
+    const el = getEl('tests-summary-card');
+    if (!el) return;
+    const s = data.summary || {};
+
+    let verdictClass = 'verdict-fail';
+    let verdictIcon = 'fa-circle-xmark';
+    if (s.verdict === 'ALEATORIO') {
+      verdictClass = 'verdict-pass';
+      verdictIcon = 'fa-circle-check';
+    } else if (s.verdict === 'ALEATORIO_CON_RESERVAS') {
+      verdictClass = 'verdict-warn';
+      verdictIcon = 'fa-triangle-exclamation';
+    }
+
+    el.innerHTML = `
+      <div class="tests-verdict-box ${verdictClass}">
+        <div class="tests-verdict-icon"><i class="fa-solid ${verdictIcon}"></i></div>
+        <div class="tests-verdict-meta">
+          <div class="tests-verdict-ratio">${s.passed} <span>/ ${s.total} pruebas superadas</span></div>
+          <div class="tests-verdict-text">${escapeHtml(s.verdict_label || '')}</div>
+        </div>
+        <div class="tests-verdict-alpha">
+          <span class="tests-verdict-alpha-label">Significancia</span>
+          <span class="tests-verdict-alpha-value">α = ${(data.alpha * 100).toFixed(2)}%</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderTestsSelector(tests) {
+    const el = getEl('tests-selector-row');
+    if (!el) return;
+    el.innerHTML = '';
+
+    tests.slice().sort((a, b) => a.order - b.order).forEach(t => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const isActive = t.id === state.selectedTestId;
+      btn.className = `test-pill test-pill-${t.status}` + (isActive ? ' active' : '');
+      const icon = t.status === 'pass' ? 'fa-circle-check' : (t.status === 'fail' ? 'fa-circle-xmark' : 'fa-circle-question');
+      const shortName = TEST_SHORT_NAMES[t.id] || t.name;
+      btn.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${t.order}. ${escapeHtml(shortName)}</span>`;
+      btn.addEventListener('click', () => {
+        state.selectedTestId = t.id;
+        document.querySelectorAll('.test-pill').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        renderTestDetail(t);
+      });
+      el.appendChild(btn);
+    });
+  }
+
+  function renderTestDetail(test) {
+    const el = getEl('test-detail-panel');
+    if (!el || !test) return;
+
+    if (test.status === 'inconclusive') {
+      el.innerHTML = `
+        <div class="test-detail-header">
+          <h4>${test.order}. ${escapeHtml(test.name)}</h4>
+        </div>
+        <p class="test-detail-objective">${escapeHtml(test.objective)}</p>
+        <div class="test-inconclusive-banner">
+          <i class="fa-solid fa-circle-question"></i>
+          <span>${escapeHtml(test.conclusion)}</span>
+        </div>
+      `;
+      return;
+    }
+
+    const passed = test.status === 'pass';
+
+    const statBlock = `
+      <div class="test-stat-compare">
+        <div class="test-stat-box">
+          <span class="test-stat-label">${escapeHtml(test.statistic_label || 'Estadístico')}</span>
+          <span class="test-stat-value">${formatNum(test.statistic)}</span>
+        </div>
+        <div class="test-stat-vs">vs</div>
+        <div class="test-stat-box">
+          <span class="test-stat-label">${escapeHtml(test.critical_label || 'Valor Crítico')}</span>
+          <span class="test-stat-value">${formatNum(test.critical_value)}</span>
+        </div>
+        <div class="test-stat-verdict ${passed ? 'pass' : 'fail'}">
+          <i class="fa-solid ${passed ? 'fa-circle-check' : 'fa-circle-xmark'}"></i>
+          ${passed ? 'Se acepta H₀' : 'Se rechaza H₀'}
+        </div>
+      </div>
+    `;
+
+    const stepsHtml = (test.steps || []).map((s, idx) => `
+        <div class="test-step-row">
+          <div class="test-step-num">${idx + 1}</div>
+          <div class="test-step-body">
+            <div class="test-step-label">${escapeHtml(s.label)}</div>
+            <div class="test-step-formula">${escapeHtml(s.formula)}</div>
+            <div class="test-step-result">${escapeHtml(s.result)}</div>
+          </div>
+        </div>
+    `).join('');
+
+    const notesHtml = (test.notes && test.notes.length) ? `
+        <div class="test-notes-box">
+          <i class="fa-solid fa-circle-info"></i>
+          <ul>${test.notes.map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>
+        </div>
+    ` : '';
+
+    const dataTableHtml = renderTestDataTable(test.data_table, 'Datos y cálculos');
+    const sampleTableHtml = test.sample_table ? renderTestDataTable(test.sample_table, 'Clasificación de cada valor (muestra)') : '';
+
+    el.innerHTML = `
+      <div class="test-detail-header">
+        <h4>${test.order}. ${escapeHtml(test.name)}</h4>
+      </div>
+      <p class="test-detail-objective">${escapeHtml(test.objective)}</p>
+      ${statBlock}
+      <div class="test-decision-rule"><strong>Regla de decisión:</strong> ${escapeHtml(test.decision_rule || '')}</div>
+      <div class="test-conclusion-box ${passed ? 'pass' : 'fail'}">${escapeHtml(test.conclusion)}</div>
+      <div class="test-steps-list">${stepsHtml}</div>
+      ${notesHtml}
+      ${dataTableHtml}
+      ${sampleTableHtml}
+    `;
+  }
+
+  function renderTestDataTable(table, title) {
+    if (!table || !table.columns || table.columns.length === 0 || !table.rows || table.rows.length === 0) return '';
+    const bodyRows = table.rows.map(r => {
+      const vals = Object.values(r);
+      return `<tr>${vals.map(v => `<td class="mono">${formatCell(v)}</td>`).join('')}</tr>`;
+    }).join('');
+    const truncNote = table.truncated
+      ? `<p class="test-table-trunc-note">Mostrando ${table.rows.length} de ${table.total_rows} filas.</p>`
+      : '';
+    return `
+      <div class="test-data-table-wrapper">
+        <h5>${escapeHtml(title)}</h5>
+        <div class="table-wrapper-studio">
+          <table class="custom-table-studio">
+            <thead><tr>${table.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
+            <tbody>${bodyRows}</tbody>
+          </table>
+        </div>
+        ${truncNote}
+      </div>
+    `;
+  }
+
+  function formatCell(v) {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'number') {
+      return Number.isInteger(v) ? String(v) : v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+    }
+    return escapeHtml(String(v));
+  }
+
+  function formatNum(v) {
+    if (v === null || v === undefined) return '—';
+    return String(v);
+  }
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
   // Inicializar

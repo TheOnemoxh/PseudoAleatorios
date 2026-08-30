@@ -37,6 +37,7 @@ from core.recommenders import (
     generate_bbs_optimal,
 )
 from core.excel_exporter import export_prng_to_excel
+from core.random_tests import run_all_tests
 
 
 from pathlib import Path
@@ -68,6 +69,11 @@ class ValidateRequest(BaseModel):
 class RecommendRequest(BaseModel):
     method: str
     sub_type: Optional[str] = "default"
+
+
+class TestsRequest(BaseModel):
+    numbers: list
+    alpha: float = 0.05
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -201,6 +207,22 @@ async def api_recommend(payload: RecommendRequest):
         raise HTTPException(status_code=400, detail="Metodo desconocido")
 
     return JSONResponse(content=res)
+
+
+@app.post("/api/tests")
+async def api_tests(payload: TestsRequest):
+    """Ejecuta las 7 pruebas estadisticas de aleatoriedad (Promedio, Frecuencia, Distancia,
+    Series, Kolmogorov-Smirnov, Poker y Coleccionista de Cupones) sobre una secuencia de
+    numeros ya generada, con el nivel de significancia (alpha) indicado por el usuario."""
+    try:
+        numbers = [float(x) for x in (payload.numbers or [])]
+        result = run_all_tests(numbers, payload.alpha)
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "errors": [f"Error al ejecutar las pruebas estadisticas: {str(e)}"]}
+        )
 
 
 def _generate_excel_response(method: str, p: dict, custom_filename: Optional[str] = None):

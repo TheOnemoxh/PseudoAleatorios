@@ -11,3 +11,4 @@ from .recommenders import (
     generate_bbs_optimal
 )
 from .stats import calculate_stats
+from .random_tests import run_all_tests

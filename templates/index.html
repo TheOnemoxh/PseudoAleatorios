@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
   <!-- Estilos del Studio -->
-  <link rel="stylesheet" href="/static/css/style.css?v=30">
+  <link rel="stylesheet" href="/static/css/style.css?v=31">
 
   <!-- Chart.js para visualización de dispersión -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -135,6 +135,29 @@
             </div>
           </div>
 
+          <!-- Configuracion de Pruebas Estadisticas de Aleatoriedad -->
+          <div class="theorem-checklist-box stat-tests-config-box" id="stat-tests-config-box">
+            <div class="checklist-header">
+              <span class="checklist-title">
+                <i class="fa-solid fa-vial-circle-check"></i> Pruebas de Aleatoriedad
+              </span>
+            </div>
+            <div class="input-group full-width" style="margin-top: 4px;">
+              <div class="input-label-row">
+                <label class="input-label"><span class="input-var-symbol">α</span> Nivel de Significancia:</label>
+                <span class="input-helper-badge">% de error permitido</span>
+              </div>
+              <select id="input-alpha" class="custom-select">
+                <option value="0.10">10% (α = 0.10)</option>
+                <option value="0.05" selected>5% (α = 0.05) — recomendado</option>
+                <option value="0.01">1% (α = 0.01)</option>
+                <option value="custom">Personalizado…</option>
+              </select>
+              <input type="number" id="input-alpha-custom" class="custom-input" style="display:none; margin-top:8px;" min="0.1" max="50" step="0.1" value="5" placeholder="% de error, ej: 2.5">
+            </div>
+            <p class="stat-tests-config-hint">Se ejecutan automáticamente las 7 pruebas al generar la secuencia.</p>
+          </div>
+
           <!-- Matriz de Acciones -->
           <div class="form-actions-matrix">
             <button type="button" class="btn-primary" id="btn-generate">
@@ -188,6 +211,9 @@
             </button>
             <button class="viz-tab-btn" data-viz="bitstream" id="btn-viz-bitstream" style="display: none;">
               <i class="fa-solid fa-terminal"></i> Flujo Binario Criptográfico
+            </button>
+            <button class="viz-tab-btn" data-viz="tests" id="btn-viz-tests">
+              <i class="fa-solid fa-vial-circle-check"></i> Pruebas Estadísticas
             </button>
           </div>
 
@@ -248,6 +274,19 @@
             </div>
           </div>
 
+          <!-- Panel 4: Pruebas Estadisticas de Aleatoriedad -->
+          <div class="tab-content-panel" id="panel-viz-tests">
+            <div class="tests-summary-card" id="tests-summary-card">
+              <!-- Resumen X/7 y veredicto, inyectado por JS -->
+            </div>
+            <div class="tests-selector-row" id="tests-selector-row">
+              <!-- Selector individual de las 7 pruebas, inyectado por JS -->
+            </div>
+            <div class="test-detail-panel" id="test-detail-panel">
+              <!-- Detalle paso a paso de la prueba seleccionada, inyectado por JS -->
+            </div>
+          </div>
+
         </div>
 
       </section>
@@ -272,7 +311,7 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Script Principal Studio -->
-  <script src="/static/js/studio.js?v=200"></script>
+  <script src="/static/js/studio.js?v=201"></script>
 
 </body>
 </html>

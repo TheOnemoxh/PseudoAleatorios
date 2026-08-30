@@ -1190,3 +1190,435 @@ body {
   from { opacity: 0; transform: translateX(20px); }
   to { opacity: 1; transform: translateX(0); }
 }
+
+/* =========================================================================
+   PRUEBAS ESTADISTICAS DE ALEATORIEDAD (7 Pruebas)
+   ========================================================================= */
+
+.stat-tests-config-box {
+  margin-top: 4px;
+}
+
+.stat-tests-config-hint {
+  margin: 10px 2px 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* --- Tarjeta de veredicto (resumen X/7) --- */
+.tests-summary-card {
+  margin-bottom: 16px;
+}
+
+.tests-loading,
+.tests-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(13, 8, 25, 0.7);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.tests-error-banner {
+  color: #FDA4AF;
+  border-color: rgba(244, 63, 94, 0.35);
+  background: rgba(244, 63, 94, 0.08);
+}
+
+.tests-verdict-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-medium);
+  background: rgba(13, 8, 25, 0.7);
+}
+
+.tests-verdict-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.tests-verdict-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.tests-verdict-ratio {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-white);
+  line-height: 1.2;
+}
+
+.tests-verdict-ratio span {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.tests-verdict-text {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.tests-verdict-alpha {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.tests-verdict-alpha-label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-faint);
+  margin-bottom: 2px;
+}
+
+.tests-verdict-alpha-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.tests-verdict-box.verdict-pass {
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 22px -6px var(--green-glow);
+}
+.tests-verdict-box.verdict-pass .tests-verdict-icon {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--green-neon);
+}
+.tests-verdict-box.verdict-pass .tests-verdict-text {
+  color: #6EE7B7;
+}
+
+.tests-verdict-box.verdict-warn {
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 22px -6px var(--amber-tint);
+}
+.tests-verdict-box.verdict-warn .tests-verdict-icon {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--amber);
+}
+.tests-verdict-box.verdict-warn .tests-verdict-text {
+  color: #FCD34D;
+}
+
+.tests-verdict-box.verdict-fail {
+  border-color: rgba(244, 63, 94, 0.4);
+  box-shadow: 0 0 22px -6px var(--rose-tint);
+}
+.tests-verdict-box.verdict-fail .tests-verdict-icon {
+  background: rgba(244, 63, 94, 0.15);
+  color: var(--rose);
+}
+.tests-verdict-box.verdict-fail .tests-verdict-text {
+  color: #FDA4AF;
+}
+
+/* --- Selector individual de las 7 pruebas --- */
+.tests-selector-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.test-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-medium);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--trans-fast);
+}
+
+.test-pill:hover {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: var(--border-focus);
+}
+
+.test-pill i.fa-circle-check { color: var(--green-neon); }
+.test-pill i.fa-circle-xmark { color: var(--rose); }
+.test-pill i.fa-circle-question { color: var(--amber); }
+
+.test-pill.active {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.35) 0%, rgba(5, 150, 105, 0.35) 100%);
+  border-color: var(--purple-bright);
+  color: var(--text-white);
+  box-shadow: 0 2px 12px -2px var(--purple-glow);
+}
+
+/* --- Panel de detalle de la prueba seleccionada --- */
+.test-detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.test-detail-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-white);
+}
+
+.test-detail-objective {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.test-inconclusive-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #FCD34D;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.test-inconclusive-banner i {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.test-stat-compare {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(13, 8, 25, 0.7);
+  border: 1px solid var(--border-subtle);
+}
+
+.test-stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.test-stat-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-faint);
+}
+
+.test-stat-value {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.test-stat-vs {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.test-stat-verdict {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.test-stat-verdict.pass {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6EE7B7;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.test-stat-verdict.fail {
+  background: rgba(244, 63, 94, 0.15);
+  color: #FDA4AF;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+.test-decision-rule {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.test-decision-rule strong {
+  color: var(--text-primary);
+}
+
+.test-conclusion-box {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  line-height: 1.5;
+  border: 1px solid var(--border-subtle);
+}
+
+.test-conclusion-box.pass {
+  background: rgba(16, 185, 129, 0.06);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #A7F3D0;
+}
+
+.test-conclusion-box.fail {
+  background: rgba(244, 63, 94, 0.06);
+  border-color: rgba(244, 63, 94, 0.3);
+  color: #FECDD3;
+}
+
+/* --- Pasos algoritmicos --- */
+.test-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.test-step-row {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+}
+
+.test-step-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: rgba(168, 85, 247, 0.18);
+  color: var(--purple-bright);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.test-step-body {
+  min-width: 0;
+}
+
+.test-step-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.test-step-formula {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-bottom: 3px;
+  word-break: break-word;
+}
+
+.test-step-result {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--green-neon);
+  word-break: break-word;
+}
+
+/* --- Notas metodologicas --- */
+.test-notes-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(168, 85, 247, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.test-notes-box i {
+  margin-top: 2px;
+  color: var(--purple-bright);
+  flex-shrink: 0;
+}
+
+.test-notes-box ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.test-notes-box li {
+  margin-bottom: 4px;
+}
+
+.test-notes-box li:last-child {
+  margin-bottom: 0;
+}
+
+/* --- Tablas de datos dentro del detalle de cada prueba --- */
+.test-data-table-wrapper {
+  margin-top: 4px;
+}
+
+.test-data-table-wrapper h5 {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary);
+}
+
+.test-data-table-wrapper .table-wrapper-studio {
+  max-height: 320px;
+  overflow-y: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.test-table-trunc-note {
+  margin: 8px 2px 0;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-style: italic;
+}
