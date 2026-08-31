@@ -211,9 +211,10 @@ async def api_recommend(payload: RecommendRequest):
 
 @app.post("/api/tests")
 async def api_tests(payload: TestsRequest):
-    """Ejecuta las 7 pruebas estadisticas de aleatoriedad (Promedio, Frecuencia, Distancia,
-    Series, Kolmogorov-Smirnov, Poker y Coleccionista de Cupones) sobre una secuencia de
-    numeros ya generada, con el nivel de significancia (alpha) indicado por el usuario."""
+    """Ejecuta las 8 pruebas estadisticas de aleatoriedad (Promedio, Frecuencia, Distancia,
+    Series, Kolmogorov-Smirnov, Poker, Corridas Arriba/Abajo del Promedio y Corridas Arriba
+    y Abajo) sobre una secuencia de numeros ya generada, con el nivel de significancia
+    (alpha) indicado por el usuario."""
     try:
         numbers = [float(x) for x in (payload.numbers or [])]
         result = run_all_tests(numbers, payload.alpha)
@@ -242,7 +243,14 @@ def _generate_excel_response(method: str, p: dict, custom_filename: Optional[str
     if not gen_res.get("success"):
         raise HTTPException(status_code=400, detail="Parametros invalidos para generar el reporte Excel")
 
-    excel_buf = export_prng_to_excel(gen_res)
+    try:
+        alpha = float(p.get("alpha", 0.05))
+        if not (0 < alpha < 1):
+            alpha = 0.05
+    except (TypeError, ValueError):
+        alpha = 0.05
+
+    excel_buf = export_prng_to_excel(gen_res, alpha=alpha)
     excel_bytes = excel_buf.getvalue()
     
     filename = custom_filename or f"PRNG_{method}.xlsx"

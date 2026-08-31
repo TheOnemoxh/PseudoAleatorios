@@ -25,7 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
     series: 'Series',
     kolmogorov_smirnov: 'Kolmogorov-Smirnov',
     poker: 'Poker',
-    coleccionista: 'Coleccionista de Cupones'
+    corridas_promedio: 'Corridas del Promedio',
+    corridas_arriba_abajo: 'Corridas Arriba/Abajo'
   };
 
   // Metadatos de Contexto por Algoritmo
@@ -779,6 +780,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function exportExcel() {
     const method = state.currentMethod;
     const params = getFormParams();
+    const alpha = getCurrentAlpha();
     const filename = `PRNG_${method}.xlsx`;
 
     const btnExp = getEl('btn-export-excel');
@@ -788,7 +790,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      const queryParams = new URLSearchParams({ method, ...params });
+      const queryParams = new URLSearchParams({ method, alpha, ...params });
       const downloadUrl = `/api/download/${filename}?${queryParams.toString()}`;
 
       // Redirección nativa del navegador: Chrome/Edge intercepta el encabezado Content-Disposition
@@ -932,7 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // =========================================================================
-  // PRUEBAS ESTADISTICAS DE ALEATORIEDAD (7 pruebas)
+  // PRUEBAS ESTADISTICAS DE ALEATORIEDAD (8 pruebas)
   // =========================================================================
 
   function getCurrentAlpha() {
@@ -966,7 +968,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.alpha = getCurrentAlpha();
 
     if (summaryEl) {
-      summaryEl.innerHTML = '<div class="tests-loading"><i class="fa-solid fa-spinner fa-spin"></i> Calculando las 7 pruebas estadísticas...</div>';
+      summaryEl.innerHTML = '<div class="tests-loading"><i class="fa-solid fa-spinner fa-spin"></i> Calculando las 8 pruebas estadísticas...</div>';
     }
 
     try {

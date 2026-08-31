@@ -1,8 +1,10 @@
 """
 Pruebas Estadisticas de Aleatoriedad para Secuencias PRNG
 ==========================================================
-Implementa las 7 pruebas descritas en la "Especificacion Tecnica de
-Pruebas de Aleatoriedad" (Evaluacion de Secuencias Continuas U(0,1)):
+Implementa las 8 pruebas descritas en la "Especificacion Tecnica de
+Pruebas de Aleatoriedad" (Evaluacion de Secuencias Continuas U(0,1)) y
+en la "Especificacion Tecnica: Prueba de las Corridas" (Capitulo 3,
+Coss Bu):
 
  1. Prueba de Promedio (Media Aritmetica)
  2. Prueba de Frecuencia (Chi-Cuadrada por Subintervalos)
@@ -10,7 +12,8 @@ Pruebas de Aleatoriedad" (Evaluacion de Secuencias Continuas U(0,1)):
  4. Prueba de Series (Pares Solapados de bits)
  5. Prueba de Kolmogorov-Smirnov (K-S)
  6. Prueba de Poker (Clasico Decimal, 5 digitos)
- 7. Prueba del Coleccionista de Cupones
+ 7. Prueba de Corridas Arriba y Abajo del Promedio
+ 8. Prueba de Corridas Arriba y Abajo (Up and Down)
 
 No requiere dependencias externas (solo la libreria estandar):
 - Cuantiles Normales: statistics.NormalDist (Python >= 3.8)
@@ -20,7 +23,7 @@ No requiere dependencias externas (solo la libreria estandar):
 
 Todas las pruebas se aplican sobre la secuencia continua R_i in [0, 1)
 que produce cualquiera de los 5 metodos generadores de la aplicacion,
-de forma que el resultado (X de 7 pruebas superadas) sea comparable
+de forma que el resultado (X de N pruebas superadas) sea comparable
 entre metodos. Donde el enunciado original ofrece una variante binaria
 y una continua (Frecuencia, Poker), se usa la variante continua/decimal
 para mantener esa comparabilidad; para la Prueba de Series -que en el
@@ -185,6 +188,69 @@ def collapse_classes(entries: List[Dict[str, Any]], min_expected: float = 5.0) -
 
 def chi2_from_entries(entries: Sequence[Dict[str, Any]]) -> float:
     return sum((e["observed"] - e["expected"]) ** 2 / e["expected"] for e in entries)
+
+
+# =========================================================================
+# HELPER: Deteccion y agrupacion de corridas (Pruebas de Corridas)
+# =========================================================================
+
+def _run_lengths(binary_seq: Sequence[int]) -> List[int]:
+    """Devuelve la longitud de cada corrida (racha) de simbolos identicos
+    consecutivos en `binary_seq`."""
+    lengths: List[int] = []
+    if not binary_seq:
+        return lengths
+    cur = binary_seq[0]
+    ln = 1
+    for b in binary_seq[1:]:
+        if b == cur:
+            ln += 1
+        else:
+            lengths.append(ln)
+            cur = b
+            ln = 1
+    lengths.append(ln)
+    return lengths
+
+
+def _build_run_classes(
+    lengths: List[int], total_expected: float, fe_func, cap: int = 30, min_expected: float = 5.0
+) -> Optional[Tuple[List[Dict[str, Any]], int]]:
+    """
+    Construye las clases de longitud de corrida i=1..h a partir de las
+    frecuencias esperadas FE_i que entrega `fe_func`, agrupando la cola
+    (todas las longitudes i > h) en una sola clase en cuanto FE_i cae por
+    debajo de `min_expected` -- tal como indica el enunciado ("agrupar las
+    categorias superiores de longitud i"). La expectativa de la clase cola
+    se obtiene por resta (total_expected - suma de FE_i tabuladas) en vez
+    de sumar una formula hasta el infinito, ya que FE_i ya son conteos
+    esperados (no probabilidades) y su suma total teorica es exactamente
+    `total_expected` (resultado de Knuth). El resultado final se pasa por
+    collapse_classes como red de seguridad, para garantizar Eᵢ >= 5 en
+    todas las clases incluso si la clase cola sigue quedando por debajo.
+    """
+    if not lengths:
+        return None
+    max_len = max(lengths)
+    raw_entries: List[Dict[str, Any]] = []
+    cum_fe = 0.0
+    i = 1
+    while i <= min(max_len, cap):
+        fe = fe_func(i)
+        if fe <= 0 or fe < min_expected:
+            break
+        obs = sum(1 for l in lengths if l == i)
+        raw_entries.append({"label": f"i={i}", "observed": obs, "expected": fe, "prob": 0.0})
+        cum_fe += fe
+        i += 1
+    h_used = i - 1
+    obs_tail = sum(1 for l in lengths if l > h_used)
+    fe_tail = total_expected - cum_fe
+    if fe_tail <= 0:
+        fe_tail = 1e-9
+    raw_entries.append({"label": f"i≥{h_used + 1}", "observed": obs_tail, "expected": fe_tail, "prob": 0.0})
+    entries = collapse_classes(raw_entries, min_expected=min_expected)
+    return entries, h_used
 
 
 def _round(x: Optional[float], nd: int = 6) -> Optional[float]:
@@ -650,58 +716,38 @@ def test_poker(numbers: List[float], alpha: float) -> Dict[str, Any]:
 
 
 # =========================================================================
-# 7. PRUEBA DEL COLECCIONISTA DE CUPONES
+# 7. PRUEBA DE CORRIDAS ARRIBA Y ABAJO DEL PROMEDIO
 # =========================================================================
-_COUPON_CLASSES = [
-    ("k=5", 0.03840),
-    ("k=6", 0.07680),
-    ("k=7", 0.09984),
-    ("k=8", 0.10752),
-    ("k≥9", 0.67744),
-]
+def test_corridas_promedio(numbers: List[float], alpha: float) -> Dict[str, Any]:
+    n = len(numbers)
+    bits = [0 if x < 0.5 else 1 for x in numbers]
+    lengths = _run_lengths(bits)
+    total_runs = len(lengths)
 
+    obj = (
+        "Evaluar la alternancia de los valores respecto al valor esperado teórico μ = 0.5 "
+        "(variante estática de la prueba de la distancia), mediante el conteo y la longitud de "
+        "las corridas (rachas) de valores consecutivos por encima o por debajo de la media."
+    )
 
-def test_coleccionista(numbers: List[float], alpha: float, d: int = 5) -> Dict[str, Any]:
-    symbols = [min(d - 1, int(x * d)) for x in numbers]
-
-    collections: List[int] = []
-    current = set()
-    length = 0
-    for s in symbols:
-        length += 1
-        current.add(s)
-        if len(current) == d:
-            collections.append(length)
-            current = set()
-            length = 0
-
-    N = len(collections)
-    if N < 5:
+    if total_runs < 5:
         return _insufficient_data(
-            "coleccionista", 7, "Prueba del Coleccionista de Cupones",
-            "Evaluar la longitud requerida de la secuencia para observar por primera vez un conjunto completo de d símbolos distintos.",
-            f"Solo se completaron {N} colecciones de los d={d} símbolos con la muestra actual "
-            f"(se recomiendan al menos 5, e idealmente N ≥ 1000, para lo cual se necesitan del orden de miles de valores generados). "
-            "Aumente el número de iteraciones (n) para que esta prueba sea concluyente.",
+            "corridas_promedio", 7, "Prueba de Corridas Arriba y Abajo del Promedio", obj,
+            f"Solo se observaron {total_runs} corridas en la secuencia binarizada; se necesitan al menos 5 "
+            "para construir la tabla de clases. Aumente n y vuelva a generar.",
         )
 
-    raw_entries = []
-    counts_by_class = Counter()
-    for k in collections:
-        if k >= 9:
-            counts_by_class["k≥9"] += 1
-        else:
-            counts_by_class[f"k={k}"] += 1
+    total_expected = (n + 1) / 2.0
 
-    for label, p in _COUPON_CLASSES:
-        raw_entries.append({"label": label, "observed": counts_by_class.get(label, 0), "expected": N * p, "prob": p})
+    def fe_i(i: int) -> float:
+        return (n - i + 3) / (2 ** (i + 1))
 
-    entries = collapse_classes(raw_entries)
-    if len(entries) < 2:
+    built = _build_run_classes(lengths, total_expected, fe_i, cap=30)
+    entries, h_used = built if built else (None, 0)
+    if not entries or len(entries) < 2:
         return _insufficient_data(
-            "coleccionista", 7, "Prueba del Coleccionista de Cupones",
-            "Evaluar la longitud requerida de la secuencia para observar por primera vez un conjunto completo de d símbolos distintos.",
-            "No fue posible formar al menos 2 clases con frecuencia esperada ≥ 5 a partir de las colecciones observadas.",
+            "corridas_promedio", 7, "Prueba de Corridas Arriba y Abajo del Promedio", obj,
+            "No fue posible formar al menos 2 clases con frecuencia esperada ≥ 5 a partir de las corridas observadas.",
         )
 
     chi0 = chi2_from_entries(entries)
@@ -713,48 +759,151 @@ def test_coleccionista(numbers: List[float], alpha: float, d: int = 5) -> Dict[s
         {"clase": e["label"], "oi": e["observed"], "ei": _round(e["expected"], 3), "aporte": _round((e["observed"] - e["expected"]) ** 2 / e["expected"], 4)}
         for e in entries
     ]
-
-    notes = [
-        f"Alfabeto discreto d = {d} (sᵢ = ⌊{d}·Rᵢ⌋). Se formaron N = {N} colecciones completas con la muestra actual."
-    ]
-    if N < 1000:
-        notes.append(
-            "El enunciado recomienda N ≥ 1000 colecciones para máxima potencia estadística "
-            f"(≈ {int(1000 * (d * sum(1/i for i in range(1, d+1))))} valores generados en promedio para d=5). "
-            "Con menos colecciones el resultado sigue siendo válido pero con menor potencia."
-        )
+    sample_rows, sample_truncated = _cap_rows(
+        [{"i": i + 1, "xi": _round(x), "bit": b} for i, (x, b) in enumerate(zip(numbers, bits))]
+    )
 
     return {
-        "id": "coleccionista",
+        "id": "corridas_promedio",
         "order": 7,
-        "name": "Prueba del Coleccionista de Cupones",
-        "objective": "Evaluar la longitud requerida de la secuencia para observar por primera vez un conjunto completo de d símbolos distintos.",
+        "name": "Prueba de Corridas Arriba y Abajo del Promedio",
+        "objective": obj,
         "status": "pass" if passed else "fail",
         "passed": passed,
-        "statistic_label": "χ₀²",
+        "statistic_label": "X₀²",
         "statistic": _round(chi0, 4),
         "critical_label": f"χ²_(α, {df})",
         "critical_value": _round(crit, 4),
         "df": df,
-        "decision_rule": "Se acepta H₀ si χ₀² ≤ χ²_(α, ν)",
+        "decision_rule": "Se acepta H₀ si X₀² ≤ χ²_(α, k−1)",
         "conclusion": (
-            f"χ₀² = {chi0:.4f} {'≤' if passed else '>'} χ²_(α,{df}) = {crit:.4f} ⇒ "
-            f"se {'acepta' if passed else 'rechaza'} H₀: la longitud de las colecciones "
-            f"{'sí' if passed else 'NO'} coincide con la distribución teórica (Stirling de 2ª especie)."
+            f"X₀² = {chi0:.4f} {'≤' if passed else '>'} χ²_(α,{df}) = {crit:.4f} ⇒ "
+            f"se {'acepta' if passed else 'rechaza'} H₀: la alternancia de corridas respecto a μ = 0.5 "
+            f"{'sí' if passed else 'NO'} es consistente con independencia."
         ),
         "steps": [
-            {"label": "Discretización", "formula": "sᵢ = ⌊d · Rᵢ⌋, d = 5 ⇒ {0,1,2,3,4}", "result": f"n = {len(numbers)} símbolos generados"},
-            {"label": "Segmentación en colecciones", "formula": "Se agrupa hasta reunir los d símbolos distintos", "result": f"N = {N} colecciones completas (longitud mínima k=d={d})"},
-            {"label": "Probabilidades teóricas (Knuth, d=5)", "formula": "pₖ = (d!/dᵏ)·{k−1 │ d−1}", "result": "p₅=0.03840, p₆=0.07680, p₇=0.09984, p₈=0.10752, p≥₉=0.67744"},
-            {"label": "Estadístico", "formula": "χ₀² = Σ (Oᵢ − Eᵢ)² / Eᵢ", "result": f"χ₀² = {chi0:.4f}"},
-            {"label": "Grados de libertad y valor crítico", "formula": "ν = t − 1 = clases − 1", "result": f"ν = {df} ⇒ χ²_(α,{df}) = {crit:.4f}"},
+            {"label": "Binarización estática", "formula": "sᵢ = 0 si Rᵢ < 0.5, sᵢ = 1 si Rᵢ ≥ 0.5", "result": f"n = {n} símbolos, {total_runs} corridas detectadas"},
+            {"label": "Total esperado de corridas", "formula": "E(Total) = (N + 1) / 2", "result": f"E(Total) = {total_expected:.4f}"},
+            {"label": "Frecuencia esperada por longitud", "formula": "FEᵢ = (N − i + 3) / 2^(i+1)", "result": f"Clases agrupadas (criterio de Cochran, FEᵢ ≥ 5) hasta i = {h_used}; quedaron {len(entries)} clases"},
+            {"label": "Estadístico", "formula": "X₀² = Σ (FOᵢ − FEᵢ)² / FEᵢ", "result": f"X₀² = {chi0:.4f}"},
+            {"label": "Grados de libertad y valor crítico", "formula": "ν = k − 1", "result": f"ν = {df} ⇒ χ²_(α,{df}) = {crit:.4f}"},
         ],
-        "notes": notes,
+        "notes": [
+            "Versión 1 del enunciado (Capítulo 3, Coss Bu): se compara cada valor contra μ = 0.5 en vez de contra su predecesor inmediato."
+        ],
         "data_table": {
-            "columns": ["Clase", "Oᵢ", "Eᵢ", "Aporte χ²"],
+            "columns": ["Clase (longitud i)", "FOᵢ", "FEᵢ", "Aporte χ²"],
             "rows": rows,
             "truncated": False,
             "total_rows": len(rows),
+        },
+        "sample_table": {
+            "columns": ["i", "Rᵢ", "sᵢ"],
+            "rows": sample_rows,
+            "truncated": sample_truncated,
+            "total_rows": n,
+        },
+    }
+
+
+# =========================================================================
+# 8. PRUEBA DE CORRIDAS ARRIBA Y ABAJO (UP AND DOWN RUNS)
+# =========================================================================
+def test_corridas_arriba_abajo(numbers: List[float], alpha: float) -> Dict[str, Any]:
+    n = len(numbers)
+    obj = (
+        "Evaluar la monotonicidad local de la secuencia comparando cada valor con su predecesor "
+        "inmediato, para detectar tendencias crecientes/decrecientes o ciclicidad (correlación serial)."
+    )
+
+    if n < 2:
+        return _insufficient_data(
+            "corridas_arriba_abajo", 8, "Prueba de Corridas Arriba y Abajo (Up and Down)", obj,
+            "Se necesitan al menos 2 valores generados para construir la secuencia diferencial.",
+        )
+
+    # sᵢ = 0 si Rᵢ < Rᵢ₊₁ (Ascenso/Up); sᵢ = 1 si Rᵢ > Rᵢ₊₁ (Descenso/Down).
+    # Empates (Rᵢ = Rᵢ₊₁) se tratan como ascenso: son estadísticamente irrelevantes
+    # para secuencias continuas y así la binarización queda siempre definida.
+    bits = [1 if a > b else 0 for a, b in zip(numbers, numbers[1:])]
+    lengths = _run_lengths(bits)
+    total_runs = len(lengths)
+
+    if total_runs < 5:
+        return _insufficient_data(
+            "corridas_arriba_abajo", 8, "Prueba de Corridas Arriba y Abajo (Up and Down)", obj,
+            f"Solo se observaron {total_runs} corridas en la secuencia diferencial; se necesitan al menos 5 "
+            "para construir la tabla de clases. Aumente n y vuelva a generar.",
+        )
+
+    total_expected = (2 * n - 1) / 3.0
+
+    def fe_i(i: int) -> float:
+        num = (i * i + 3 * i + 1) * n - (i ** 3 + 3 * i * i - i - 4)
+        den = math.factorial(i + 3)
+        return 2.0 * num / den
+
+    built = _build_run_classes(lengths, total_expected, fe_i, cap=20)
+    entries, h_used = built if built else (None, 0)
+    if not entries or len(entries) < 2:
+        return _insufficient_data(
+            "corridas_arriba_abajo", 8, "Prueba de Corridas Arriba y Abajo (Up and Down)", obj,
+            "No fue posible formar al menos 2 clases con frecuencia esperada ≥ 5 a partir de las corridas observadas.",
+        )
+
+    chi0 = chi2_from_entries(entries)
+    df = len(entries) - 1
+    crit = chi2_critical(alpha, df)
+    passed = chi0 <= crit
+
+    rows = [
+        {"clase": e["label"], "oi": e["observed"], "ei": _round(e["expected"], 3), "aporte": _round((e["observed"] - e["expected"]) ** 2 / e["expected"], 4)}
+        for e in entries
+    ]
+    sample_rows, sample_truncated = _cap_rows(
+        [{"i": i + 1, "xi": _round(numbers[i]), "xi1": _round(numbers[i + 1]), "bit": b} for i, b in enumerate(bits)]
+    )
+
+    return {
+        "id": "corridas_arriba_abajo",
+        "order": 8,
+        "name": "Prueba de Corridas Arriba y Abajo (Up and Down)",
+        "objective": obj,
+        "status": "pass" if passed else "fail",
+        "passed": passed,
+        "statistic_label": "X₀²",
+        "statistic": _round(chi0, 4),
+        "critical_label": f"χ²_(α, {df})",
+        "critical_value": _round(crit, 4),
+        "df": df,
+        "decision_rule": "Se acepta H₀ si X₀² ≤ χ²_(α, k−1)",
+        "conclusion": (
+            f"X₀² = {chi0:.4f} {'≤' if passed else '>'} χ²_(α,{df}) = {crit:.4f} ⇒ "
+            f"se {'acepta' if passed else 'rechaza'} H₀: la secuencia de ascensos/descensos "
+            f"{'sí' if passed else 'NO'} es consistente con independencia."
+        ),
+        "steps": [
+            {"label": "Binarización dinámica", "formula": "sᵢ = 0 si Rᵢ < Rᵢ₊₁ (Up), sᵢ = 1 si Rᵢ > Rᵢ₊₁ (Down)", "result": f"N−1 = {n - 1} comparaciones, {total_runs} corridas detectadas"},
+            {"label": "Total esperado de corridas", "formula": "E(Total) = (2N − 1) / 3", "result": f"E(Total) = {total_expected:.4f}"},
+            {"label": "Frecuencia esperada por longitud", "formula": "FEᵢ = 2·[((i²+3i+1)N − (i³+3i²−i−4)) / (i+3)!]", "result": f"Clases agrupadas (criterio de Cochran, FEᵢ ≥ 5) hasta i = {h_used}; quedaron {len(entries)} clases"},
+            {"label": "Estadístico", "formula": "X₀² = Σ (FOᵢ − FEᵢ)² / FEᵢ", "result": f"X₀² = {chi0:.4f}"},
+            {"label": "Grados de libertad y valor crítico", "formula": "ν = k − 1", "result": f"ν = {df} ⇒ χ²_(α,{df}) = {crit:.4f}"},
+        ],
+        "notes": [
+            "Versión 2 del enunciado (Capítulo 3, Coss Bu): se compara cada valor contra su predecesor inmediato en vez de contra μ = 0.5. "
+            "Los empates (Rᵢ = Rᵢ₊₁) se tratan como ascenso, caso estadísticamente irrelevante para secuencias continuas."
+        ],
+        "data_table": {
+            "columns": ["Clase (longitud i)", "FOᵢ", "FEᵢ", "Aporte χ²"],
+            "rows": rows,
+            "truncated": False,
+            "total_rows": len(rows),
+        },
+        "sample_table": {
+            "columns": ["i", "Rᵢ", "Rᵢ₊₁", "sᵢ"],
+            "rows": sample_rows,
+            "truncated": sample_truncated,
+            "total_rows": n - 1,
         },
     }
 
@@ -790,12 +939,13 @@ _ALL_TESTS = [
     test_series,
     test_ks,
     test_poker,
-    test_coleccionista,
+    test_corridas_promedio,
+    test_corridas_arriba_abajo,
 ]
 
 
 def run_all_tests(numbers: List[float], alpha: float = 0.05) -> Dict[str, Any]:
-    """Ejecuta las 7 pruebas estadísticas sobre la secuencia `numbers` (valores en [0,1))."""
+    """Ejecuta las 8 pruebas estadísticas sobre la secuencia `numbers` (valores en [0,1))."""
     try:
         alpha = float(alpha)
     except (TypeError, ValueError):
@@ -810,7 +960,7 @@ def run_all_tests(numbers: List[float], alpha: float = 0.05) -> Dict[str, Any]:
             "errors": ["Se requieren al menos 10 valores generados para ejecutar las pruebas estadísticas."],
             "alpha": alpha,
             "n": n,
-            "summary": {"passed": 0, "total": 7, "verdict": "NO_CONCLUYENTE", "verdict_label": "Muestra insuficiente"},
+            "summary": {"passed": 0, "total": len(_ALL_TESTS), "verdict": "NO_CONCLUYENTE", "verdict_label": "Muestra insuficiente"},
             "tests": [],
         }
 
