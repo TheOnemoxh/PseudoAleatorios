@@ -211,10 +211,10 @@ async def api_recommend(payload: RecommendRequest):
 
 @app.post("/api/tests")
 async def api_tests(payload: TestsRequest):
-    """Ejecuta las 8 pruebas estadisticas de aleatoriedad (Promedio, Frecuencia, Distancia,
-    Series, Kolmogorov-Smirnov, Poker, Corridas Arriba/Abajo del Promedio y Corridas Arriba
-    y Abajo) sobre una secuencia de numeros ya generada, con el nivel de significancia
-    (alpha) indicado por el usuario."""
+    """Ejecuta las 7 pruebas estadisticas de aleatoriedad (Promedio, Frecuencia, Distancia,
+    Series, Kolmogorov-Smirnov, Poker y Corridas Arriba/Abajo del Promedio) sobre una
+    secuencia de numeros ya generada, con el nivel de significancia (alpha) indicado
+    por el usuario."""
     try:
         numbers = [float(x) for x in (payload.numbers or [])]
         result = run_all_tests(numbers, payload.alpha)

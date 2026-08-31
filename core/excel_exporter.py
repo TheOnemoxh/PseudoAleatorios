@@ -4,12 +4,12 @@ Generates a professionally styled .xlsx workbook using openpyxl:
 - Sheet 1: Metadata, Variables, Diagnóstico de Teoremas y Tabla Completa Paso a Paso
   con los valores numéricos calculados de la secuencia pseudoaleatoria.
 - Sheet 2: Pares de Independencia Lag-1 (R_i vs R_{i+1}) y Gráfico de Dispersión Nativo.
-- Sheets 3-10: Una hoja por cada una de las 8 Pruebas Estadísticas de Aleatoriedad
-  (Promedio, Frecuencia, Distancia, Series, Kolmogorov-Smirnov, Poker, Corridas
-  Arriba/Abajo del Promedio y Corridas Arriba y Abajo), con los datos, el paso a
-  paso y las fórmulas NATIVAS de Excel (no valores fijos) para que el usuario
-  pueda editar el nivel de significancia (y, en Distancia, el subrango de
-  interés) y ver el resultado recalcularse en vivo.
+- Sheets 3-9: Una hoja por cada una de las 7 Pruebas Estadísticas de Aleatoriedad
+  (Promedio, Frecuencia, Distancia, Series, Kolmogorov-Smirnov, Poker y Corridas
+  Arriba/Abajo del Promedio), con los datos, el paso a paso y las fórmulas
+  NATIVAS de Excel (no valores fijos) para que el usuario pueda editar el
+  nivel de significancia (y, en Distancia, el subrango de interés) y ver el
+  resultado recalcularse en vivo.
 - Paleta moderna: Verde Esmeralda (#10B981) y Morado (#7C3AED / #4C1D95).
 """
 
@@ -53,8 +53,6 @@ TEST_SHEET_META = {
                         "Objetivo: Analizar la frecuencia de combinaciones de dígitos en bloques de 5 dígitos, clasificados en 7 manos de póker, contra sus probabilidades teóricas."),
     "corridas_promedio": ("T7 Corridas Promedio", "PRUEBA DE CORRIDAS ARRIBA Y ABAJO DEL PROMEDIO",
                         "Objetivo: Evaluar la alternancia de los valores respecto al valor esperado teórico μ = 0.5 (variante estática de la prueba de la distancia), mediante el conteo y la longitud de las corridas (rachas) por encima o por debajo de la media."),
-    "corridas_arriba_abajo": ("T8 Corridas Arriba-Abajo", "PRUEBA DE CORRIDAS ARRIBA Y ABAJO (UP AND DOWN)",
-                        "Objetivo: Evaluar la monotonicidad local de la secuencia comparando cada valor con su predecesor inmediato, para detectar tendencias crecientes/decrecientes o ciclicidad (correlación serial)."),
 }
 
 
@@ -613,7 +611,6 @@ def _build_test_sheets(wb, ws1_title, ri_col_letter, data_start_row, n, alpha, n
     _sheet_ks(wb, ri_range, n, alpha)
     _sheet_poker(wb, ws1_title, ri_col_letter, data_start_row, n, alpha, numbers)
     _sheet_corridas_promedio(wb, ws1_title, ri_col_letter, data_start_row, n, alpha, numbers)
-    _sheet_corridas_arriba_abajo(wb, ws1_title, ri_col_letter, data_start_row, n, alpha, numbers)
 
 
 # =========================================================================
@@ -1260,161 +1257,3 @@ def _sheet_corridas_promedio(wb, ws1_title, ri_col_letter, data_start_row, n, al
     ws.column_dimensions["A"].width = 34
     ws.freeze_panes = f"A{helper_start}"
 
-
-# =========================================================================
-# T8. PRUEBA DE CORRIDAS ARRIBA Y ABAJO (UP AND DOWN RUNS)
-# Version dinamica (Cap. 3, Coss Bu): se compara cada Ri contra su predecesor
-# inmediato Ri+1 (empate -> ascenso). Misma tecnica de deteccion de corridas
-# que en T7, con FEi via la formula factorial de Knuth y el mismo criterio
-# de agrupacion de cola (Cochran, FEi < 5).
-# =========================================================================
-def _sheet_corridas_arriba_abajo(wb, ws1_title, ri_col_letter, data_start_row, n, alpha, numbers):
-    name, title, objective = TEST_SHEET_META["corridas_arriba_abajo"]
-    ws, tb, alpha_cell, row = _new_test_sheet(wb, name, title, objective, alpha)
-
-    if n < 2:
-        warn = ws.cell(row=row, column=1, value="⚠ Datos insuficientes: se necesitan al menos 2 valores generados para construir la secuencia diferencial.")
-        warn.font = Font(name="Arial", size=10.5, bold=True, color="B45309")
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
-        _autosize(ws)
-        return
-
-    bits = [1 if a > b else 0 for a, b in zip(numbers, numbers[1:])]
-    lengths = _run_lengths_py(bits)
-
-    if len(lengths) < 5:
-        warn = ws.cell(row=row, column=1, value=f"⚠ Datos insuficientes: con n={n} solo se observaron {len(lengths)} corridas en la secuencia diferencial; se necesitan al menos 5 para construir la tabla de clases. Aumente la cantidad de valores generados y vuelva a exportar.")
-        warn.font = Font(name="Arial", size=10.5, bold=True, color="B45309")
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
-        _autosize(ws)
-        return
-
-    total_expected_py = (2 * n - 1) / 3.0
-
-    def fe_i(i):
-        num = (i * i + 3 * i + 1) * n - (i ** 3 + 3 * i * i - i - 4)
-        den = math.factorial(i + 3)
-        return 2.0 * num / den
-
-    plan = _plan_run_length_groups(lengths, total_expected_py, fe_i, cap=20)
-    if plan is None:
-        warn = ws.cell(row=row, column=1, value="⚠ Datos insuficientes: no fue posible formar al menos 2 clases con frecuencia esperada ≥ 5 a partir de las corridas observadas. Aumente la cantidad de valores generados y vuelva a exportar.")
-        warn.font = Font(name="Arial", size=10.5, bold=True, color="B45309")
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
-        _autosize(ws)
-        return
-    entries, h_used = plan
-    df = len(entries) - 1
-
-    n_cell = _kv_row(ws, row, "N  (cantidad original de valores)", f"=COUNT('{ws1_title}'!${ri_col_letter}${data_start_row}:${ri_col_letter}${data_start_row + n - 1})", tb, num_fmt="0")
-    row += 1
-    total_cell = _kv_row(ws, row, "E(Total de corridas)  =  (2N − 1) / 3", f"=(2*{n_cell}-1)/3", tb, num_fmt="0.0000")
-    row += 1
-    note2 = ws.cell(row=row, column=1, value=f"La cantidad de clases ({len(entries)}) se calculó al exportar, agrupando corridas hasta lograr FEᵢ ≥ 5 (criterio de Cochran). Empates (Rᵢ=Rᵢ₊₁) se tratan como ascenso.")
-    note2.font = Font(name="Arial", size=9, italic=True, color=COLOR_TEXT)
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=7)
-    row += 2
-
-    _section_header(ws, row, f"BINARIZACIÓN DINÁMICA Y DETECCIÓN DE CORRIDAS (h = {h_used}, ν = {df})")
-    row += 1
-    _table_header(ws, row, ["i", "Rᵢ", "Rᵢ₊₁", "sᵢ (0=Up si Rᵢ<Rᵢ₊₁, 1=Down si Rᵢ>Rᵢ₊₁)", "Longitud corrida actual", "Longitud si es fin de corrida"], tb)
-    row += 1
-    helper_start = row
-
-    m = n - 1
-    for k in range(1, m + 1):
-        src_row = data_start_row + k - 1
-        ws.cell(row=row, column=1, value=k).border = tb
-        ws.cell(row=row, column=1).alignment = Alignment(horizontal="center")
-
-        c_ri = ws.cell(row=row, column=2, value=f"='{ws1_title}'!{ri_col_letter}{src_row}")
-        c_ri.number_format = "0.000000"
-        c_ri.border = tb
-        c_ri.alignment = Alignment(horizontal="center")
-
-        c_ri1 = ws.cell(row=row, column=3, value=f"='{ws1_title}'!{ri_col_letter}{src_row + 1}")
-        c_ri1.number_format = "0.000000"
-        c_ri1.border = tb
-        c_ri1.alignment = Alignment(horizontal="center")
-
-        c_bit = ws.cell(row=row, column=4, value=f"=IF(B{row}>C{row},1,0)")
-        c_bit.border = tb
-        c_bit.alignment = Alignment(horizontal="center")
-
-        if row == helper_start:
-            len_formula = "=1"
-        else:
-            len_formula = f"=IF(D{row}=D{row-1},E{row-1}+1,1)"
-        c_len = ws.cell(row=row, column=5, value=len_formula)
-        c_len.border = tb
-        c_len.alignment = Alignment(horizontal="center")
-
-        if k == m:
-            end_formula = f"=E{row}"
-        else:
-            end_formula = f'=IF(D{row}<>D{row+1},E{row},"")'
-        c_end = ws.cell(row=row, column=6, value=end_formula)
-        c_end.border = tb
-        c_end.alignment = Alignment(horizontal="center")
-
-        row += 1
-
-    helper_end = row - 1
-    run_range = f"$F${helper_start}:$F${helper_end}"
-
-    row += 1
-    runs_cell = _kv_row(ws, row, "Corridas totales observadas  =  COUNT(rango)", f"=COUNT({run_range})", tb, num_fmt="0")
-    row += 2
-
-    _section_header(ws, row, "TABLA DE CLASES DE LONGITUD DE CORRIDA (clases agrupadas automáticamente donde FEᵢ < 5)")
-    row += 1
-    _table_header(ws, row, ["Clase (longitud i)", "FOᵢ (observado)", "FEᵢ (esperado)", "(FOᵢ−FEᵢ)²/FEᵢ"], tb)
-    row += 1
-    class_start = row
-    fe_col_letter = "C"
-    for entry in entries:
-        ws.cell(row=row, column=1, value=entry["label"]).border = tb
-
-        oi_terms = []
-        has_tail = False
-        for kind, val in entry["codes"]:
-            if kind == "i":
-                oi_terms.append(f'COUNTIF({run_range},{val})')
-            else:
-                oi_terms.append(f'COUNTIF({run_range},">="&{val})')
-                has_tail = True
-        oi_c = ws.cell(row=row, column=2, value="=" + "+".join(oi_terms))
-        oi_c.border = tb
-        oi_c.alignment = Alignment(horizontal="center")
-
-        if has_tail:
-            fe_formula = f"={total_cell}-SUM({fe_col_letter}{class_start}:{fe_col_letter}{row-1})" if row > class_start else f"={total_cell}"
-        else:
-            i_val = next(val for kind, val in entry["codes"] if kind == "i")
-            fe_formula = f"=2*((({i_val}^2+3*{i_val}+1)*{n_cell})-({i_val}^3+3*{i_val}^2-{i_val}-4))/FACT({i_val + 3})"
-        fe_c = ws.cell(row=row, column=3, value=fe_formula)
-        fe_c.number_format = "0.0000"
-        fe_c.border = tb
-        fe_c.alignment = Alignment(horizontal="center")
-
-        contrib_c = ws.cell(row=row, column=4, value=f"=(B{row}-C{row})^2/C{row}")
-        contrib_c.number_format = "0.0000"
-        contrib_c.border = tb
-        contrib_c.alignment = Alignment(horizontal="center")
-        row += 1
-
-    class_end = row - 1
-    row += 1
-
-    chi0_cell = _kv_row(ws, row, "X₀²  =  Σ (FOᵢ−FEᵢ)²/FEᵢ", f"=SUM(D{class_start}:D{class_end})", tb, num_fmt="0.0000", highlight=True)
-    row += 1
-    crit_cell = _kv_row(ws, row, f"χ²_(α, {df})  =  CHISQ.INV.RT(α, {df})", f"=_xlfn.CHISQ.INV.RT({alpha_cell},{df})", tb, num_fmt="0.0000", highlight=True)
-    row += 2
-
-    _section_header(ws, row, "CRITERIO DE DECISIÓN:  Se acepta H0 si X₀² ≤ χ²_(α, k−1)")
-    row += 1
-    _decision_row(ws, row, chi0_cell, crit_cell, tb, comparator="<=")
-
-    _autosize(ws)
-    ws.column_dimensions["A"].width = 34
-    ws.freeze_panes = f"A{helper_start}"

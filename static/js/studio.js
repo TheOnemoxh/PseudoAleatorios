@@ -25,8 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     series: 'Series',
     kolmogorov_smirnov: 'Kolmogorov-Smirnov',
     poker: 'Poker',
-    corridas_promedio: 'Corridas del Promedio',
-    corridas_arriba_abajo: 'Corridas Arriba/Abajo'
+    corridas_promedio: 'Corridas del Promedio'
   };
 
   // Metadatos de Contexto por Algoritmo
@@ -934,7 +933,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // =========================================================================
-  // PRUEBAS ESTADISTICAS DE ALEATORIEDAD (8 pruebas)
+  // PRUEBAS ESTADISTICAS DE ALEATORIEDAD (7 pruebas)
   // =========================================================================
 
   function getCurrentAlpha() {
@@ -968,7 +967,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.alpha = getCurrentAlpha();
 
     if (summaryEl) {
-      summaryEl.innerHTML = '<div class="tests-loading"><i class="fa-solid fa-spinner fa-spin"></i> Calculando las 8 pruebas estadísticas...</div>';
+      summaryEl.innerHTML = '<div class="tests-loading"><i class="fa-solid fa-spinner fa-spin"></i> Calculando las 7 pruebas estadísticas...</div>';
     }
 
     try {

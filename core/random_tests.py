@@ -1,7 +1,7 @@
 """
 Pruebas Estadisticas de Aleatoriedad para Secuencias PRNG
 ==========================================================
-Implementa las 8 pruebas descritas en la "Especificacion Tecnica de
+Implementa las 7 pruebas descritas en la "Especificacion Tecnica de
 Pruebas de Aleatoriedad" (Evaluacion de Secuencias Continuas U(0,1)) y
 en la "Especificacion Tecnica: Prueba de las Corridas" (Capitulo 3,
 Coss Bu):
@@ -13,7 +13,6 @@ Coss Bu):
  5. Prueba de Kolmogorov-Smirnov (K-S)
  6. Prueba de Poker (Clasico Decimal, 5 digitos)
  7. Prueba de Corridas Arriba y Abajo del Promedio
- 8. Prueba de Corridas Arriba y Abajo (Up and Down)
 
 No requiere dependencias externas (solo la libreria estandar):
 - Cuantiles Normales: statistics.NormalDist (Python >= 3.8)
@@ -806,108 +805,6 @@ def test_corridas_promedio(numbers: List[float], alpha: float) -> Dict[str, Any]
     }
 
 
-# =========================================================================
-# 8. PRUEBA DE CORRIDAS ARRIBA Y ABAJO (UP AND DOWN RUNS)
-# =========================================================================
-def test_corridas_arriba_abajo(numbers: List[float], alpha: float) -> Dict[str, Any]:
-    n = len(numbers)
-    obj = (
-        "Evaluar la monotonicidad local de la secuencia comparando cada valor con su predecesor "
-        "inmediato, para detectar tendencias crecientes/decrecientes o ciclicidad (correlación serial)."
-    )
-
-    if n < 2:
-        return _insufficient_data(
-            "corridas_arriba_abajo", 8, "Prueba de Corridas Arriba y Abajo (Up and Down)", obj,
-            "Se necesitan al menos 2 valores generados para construir la secuencia diferencial.",
-        )
-
-    # sᵢ = 0 si Rᵢ < Rᵢ₊₁ (Ascenso/Up); sᵢ = 1 si Rᵢ > Rᵢ₊₁ (Descenso/Down).
-    # Empates (Rᵢ = Rᵢ₊₁) se tratan como ascenso: son estadísticamente irrelevantes
-    # para secuencias continuas y así la binarización queda siempre definida.
-    bits = [1 if a > b else 0 for a, b in zip(numbers, numbers[1:])]
-    lengths = _run_lengths(bits)
-    total_runs = len(lengths)
-
-    if total_runs < 5:
-        return _insufficient_data(
-            "corridas_arriba_abajo", 8, "Prueba de Corridas Arriba y Abajo (Up and Down)", obj,
-            f"Solo se observaron {total_runs} corridas en la secuencia diferencial; se necesitan al menos 5 "
-            "para construir la tabla de clases. Aumente n y vuelva a generar.",
-        )
-
-    total_expected = (2 * n - 1) / 3.0
-
-    def fe_i(i: int) -> float:
-        num = (i * i + 3 * i + 1) * n - (i ** 3 + 3 * i * i - i - 4)
-        den = math.factorial(i + 3)
-        return 2.0 * num / den
-
-    built = _build_run_classes(lengths, total_expected, fe_i, cap=20)
-    entries, h_used = built if built else (None, 0)
-    if not entries or len(entries) < 2:
-        return _insufficient_data(
-            "corridas_arriba_abajo", 8, "Prueba de Corridas Arriba y Abajo (Up and Down)", obj,
-            "No fue posible formar al menos 2 clases con frecuencia esperada ≥ 5 a partir de las corridas observadas.",
-        )
-
-    chi0 = chi2_from_entries(entries)
-    df = len(entries) - 1
-    crit = chi2_critical(alpha, df)
-    passed = chi0 <= crit
-
-    rows = [
-        {"clase": e["label"], "oi": e["observed"], "ei": _round(e["expected"], 3), "aporte": _round((e["observed"] - e["expected"]) ** 2 / e["expected"], 4)}
-        for e in entries
-    ]
-    sample_rows, sample_truncated = _cap_rows(
-        [{"i": i + 1, "xi": _round(numbers[i]), "xi1": _round(numbers[i + 1]), "bit": b} for i, b in enumerate(bits)]
-    )
-
-    return {
-        "id": "corridas_arriba_abajo",
-        "order": 8,
-        "name": "Prueba de Corridas Arriba y Abajo (Up and Down)",
-        "objective": obj,
-        "status": "pass" if passed else "fail",
-        "passed": passed,
-        "statistic_label": "X₀²",
-        "statistic": _round(chi0, 4),
-        "critical_label": f"χ²_(α, {df})",
-        "critical_value": _round(crit, 4),
-        "df": df,
-        "decision_rule": "Se acepta H₀ si X₀² ≤ χ²_(α, k−1)",
-        "conclusion": (
-            f"X₀² = {chi0:.4f} {'≤' if passed else '>'} χ²_(α,{df}) = {crit:.4f} ⇒ "
-            f"se {'acepta' if passed else 'rechaza'} H₀: la secuencia de ascensos/descensos "
-            f"{'sí' if passed else 'NO'} es consistente con independencia."
-        ),
-        "steps": [
-            {"label": "Binarización dinámica", "formula": "sᵢ = 0 si Rᵢ < Rᵢ₊₁ (Up), sᵢ = 1 si Rᵢ > Rᵢ₊₁ (Down)", "result": f"N−1 = {n - 1} comparaciones, {total_runs} corridas detectadas"},
-            {"label": "Total esperado de corridas", "formula": "E(Total) = (2N − 1) / 3", "result": f"E(Total) = {total_expected:.4f}"},
-            {"label": "Frecuencia esperada por longitud", "formula": "FEᵢ = 2·[((i²+3i+1)N − (i³+3i²−i−4)) / (i+3)!]", "result": f"Clases agrupadas (criterio de Cochran, FEᵢ ≥ 5) hasta i = {h_used}; quedaron {len(entries)} clases"},
-            {"label": "Estadístico", "formula": "X₀² = Σ (FOᵢ − FEᵢ)² / FEᵢ", "result": f"X₀² = {chi0:.4f}"},
-            {"label": "Grados de libertad y valor crítico", "formula": "ν = k − 1", "result": f"ν = {df} ⇒ χ²_(α,{df}) = {crit:.4f}"},
-        ],
-        "notes": [
-            "Versión 2 del enunciado (Capítulo 3, Coss Bu): se compara cada valor contra su predecesor inmediato en vez de contra μ = 0.5. "
-            "Los empates (Rᵢ = Rᵢ₊₁) se tratan como ascenso, caso estadísticamente irrelevante para secuencias continuas."
-        ],
-        "data_table": {
-            "columns": ["Clase (longitud i)", "FOᵢ", "FEᵢ", "Aporte χ²"],
-            "rows": rows,
-            "truncated": False,
-            "total_rows": len(rows),
-        },
-        "sample_table": {
-            "columns": ["i", "Rᵢ", "Rᵢ₊₁", "sᵢ"],
-            "rows": sample_rows,
-            "truncated": sample_truncated,
-            "total_rows": n - 1,
-        },
-    }
-
-
 def _insufficient_data(test_id: str, order: int, name: str, objective: str, reason: str) -> Dict[str, Any]:
     return {
         "id": test_id,
@@ -940,7 +837,6 @@ _ALL_TESTS = [
     test_ks,
     test_poker,
     test_corridas_promedio,
-    test_corridas_arriba_abajo,
 ]
 
 
