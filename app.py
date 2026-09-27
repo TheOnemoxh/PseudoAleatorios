@@ -4,6 +4,7 @@ Clean, direct REST API serving frontend UI with dynamic charts and Excel exports
 """
 
 import io
+import json
 import os
 import tempfile
 from datetime import datetime
@@ -38,6 +39,7 @@ from core.recommenders import (
 )
 from core.excel_exporter import export_prng_to_excel
 from core.random_tests import run_all_tests
+from core.distributions import run_distribution_validations
 
 
 from pathlib import Path
@@ -74,6 +76,12 @@ class RecommendRequest(BaseModel):
 class TestsRequest(BaseModel):
     numbers: list
     alpha: float = 0.05
+
+
+class DistributionsRequest(BaseModel):
+    numbers: list
+    alpha: float = 0.05
+    config: Optional[Dict[str, Any]] = None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -226,6 +234,37 @@ async def api_tests(payload: TestsRequest):
         )
 
 
+@app.post("/api/distributions")
+async def api_distributions(payload: DistributionsRequest):
+    """Validacion de las conversiones estadisticas: convierte los r_i generados a las
+    distribuciones Uniforme(A,B), Normal, Erlang, Poisson y Binomial, cuenta los casos
+    "menor que", "mayor que" y "entre a y b", y compara la probabilidad simulada con
+    la probabilidad teorica de cada distribucion."""
+    try:
+        numbers = [float(x) for x in (payload.numbers or [])]
+        result = run_distribution_validations(numbers, payload.alpha, payload.config)
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "errors": [f"Error al validar las conversiones estadisticas: {str(e)}"]}
+        )
+
+
+def _parse_dist_config(raw) -> Optional[Dict[str, Any]]:
+    """La configuracion de las distribuciones llega como JSON (texto) en la URL de descarga
+    o como objeto en el POST; si no se puede leer se usan los valores por defecto."""
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else None
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
 def _generate_excel_response(method: str, p: dict, custom_filename: Optional[str] = None):
     if method in ["congruencial_mixto", "gclm"]:
         gen_res = generate_gclm(int(p.get("X0", 0)), int(p.get("a", 1)), int(p.get("c", 1)), int(p.get("m", 1)), int(p.get("n", 50)))
@@ -250,7 +289,8 @@ def _generate_excel_response(method: str, p: dict, custom_filename: Optional[str
     except (TypeError, ValueError):
         alpha = 0.05
 
-    excel_buf = export_prng_to_excel(gen_res, alpha=alpha)
+    dist_config = _parse_dist_config(p.get("dist_config"))
+    excel_buf = export_prng_to_excel(gen_res, alpha=alpha, dist_config=dist_config)
     excel_bytes = excel_buf.getvalue()
     
     filename = custom_filename or f"PRNG_{method}.xlsx"

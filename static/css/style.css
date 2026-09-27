@@ -1622,3 +1622,331 @@ body {
   color: var(--text-faint);
   font-style: italic;
 }
+
+/* =========================================================================
+   VALIDACION DE LAS CONVERSIONES ESTADISTICAS (5 distribuciones)
+   ========================================================================= */
+
+.test-pill i.fa-circle-notch { color: var(--text-muted); }
+
+.dist-pill-count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.test-pill.active .dist-pill-count {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-white);
+}
+
+/* --- Tarjeta de configuracion (parametros, metodo y casos) --- */
+.dist-config-card {
+  margin-bottom: 18px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(13, 8, 25, 0.7);
+  border: 1px solid var(--border-subtle);
+}
+
+.dist-config-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.dist-config-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dist-config-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dist-config-title i {
+  color: var(--green-neon);
+}
+
+.dist-config-title-sub {
+  margin-top: 4px;
+}
+
+.dist-params-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.dist-method-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.dist-method-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  height: auto;
+  padding: 8px 12px;
+  text-align: left;
+  flex: 1 1 160px;
+}
+
+.dist-method-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dist-method-formula {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.dist-case-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dist-case-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dist-case-input-row .dist-case-tag {
+  width: 86px;
+  flex-shrink: 0;
+}
+
+.dist-case-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  background: var(--purple-tint);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dist-case-x {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.dist-op-select.custom-select {
+  width: 62px;
+  height: 36px;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.dist-case-num.custom-input {
+  width: 96px;
+  height: 36px;
+  font-family: var(--font-mono);
+}
+
+.dist-reset-link {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  height: auto;
+  padding: 4px 0;
+  font-size: 11.5px;
+}
+
+/* --- Detalle de la distribucion seleccionada --- */
+.dist-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dist-params-badge {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green-neon);
+}
+
+.dist-case-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.dist-case-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(13, 8, 25, 0.7);
+  border: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+
+.dist-case-card.pass {
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.dist-case-card.fail {
+  border-color: rgba(244, 63, 94, 0.35);
+}
+
+.dist-case-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dist-case-card-head .test-stat-verdict {
+  margin-left: 0;
+  padding: 4px 10px;
+  font-size: 10.5px;
+}
+
+.dist-case-condition {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-white);
+}
+
+.dist-prob-compare {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dist-prob-compare .test-stat-value {
+  font-size: 16px;
+}
+
+.dist-prob-compare .test-stat-vs {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.dist-prob-sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.dist-diff-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.dist-diff-row strong {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.dist-rel {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.dist-theo-details summary {
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--purple-bright);
+  margin-bottom: 6px;
+}
+
+.dist-theo-details .test-step-formula {
+  margin-top: 4px;
+}
+
+.dist-multiline {
+  white-space: pre-line;
+}
+
+.dist-chart-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+  padding: 12px;
+  background: rgba(10, 6, 20, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.dist-moments-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.dist-moment {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+}
+
+.dist-moment .test-stat-value {
+  font-size: 15px;
+}
+
+@media (max-width: 900px) {
+  .dist-config-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .dist-case-input-row .dist-case-tag {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .dist-case-num.custom-input {
+    width: 80px;
+  }
+}

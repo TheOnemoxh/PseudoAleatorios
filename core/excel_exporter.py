@@ -10,12 +10,15 @@ Generates a professionally styled .xlsx workbook using openpyxl:
   NATIVAS de Excel (no valores fijos) para que el usuario pueda editar el
   nivel de significancia (y, en Distancia, el subrango de interés) y ver el
   resultado recalcularse en vivo.
+- Hojas V0-V5: Validación de las Conversiones Estadísticas (Uniforme, Normal, Erlang,
+  Poisson y Binomial): conversión de cada Rᵢ, conteo "menor que / mayor que / entre a y b"
+  con CONTAR.SI.CONJUNTO y comparación contra la probabilidad teórica (fórmulas nativas).
 - Paleta moderna: Verde Esmeralda (#10B981) y Morado (#7C3AED / #4C1D95).
 """
 
 import io
 import math
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Optional, Tuple
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -61,7 +64,8 @@ def create_thin_border():
     return Border(left=thin, right=thin, top=thin, bottom=thin)
 
 
-def export_prng_to_excel(gen_result: Dict[str, Any], alpha: float = 0.05) -> io.BytesIO:
+def export_prng_to_excel(gen_result: Dict[str, Any], alpha: float = 0.05,
+                        dist_config: Optional[Dict[str, Any]] = None) -> io.BytesIO:
     wb = openpyxl.Workbook()
 
     ws1 = wb.active
@@ -93,6 +97,9 @@ def export_prng_to_excel(gen_result: Dict[str, Any], alpha: float = 0.05) -> io.
     numbers = gen_result.get("numbers") or [s.get("Ri", 0.0) for s in steps]
     if n >= 10:
         _build_test_sheets(wb, SHEET1_TITLE, ri_col_letter, data_start_row, n, alpha, numbers)
+        # Validacion de las conversiones estadisticas (V0 Resumen + V1..V5 una hoja por distribucion)
+        from .excel_distributions import build_distribution_sheets
+        build_distribution_sheets(wb, SHEET1_TITLE, ri_col_letter, data_start_row, n, alpha, dist_config)
 
     buffer = io.BytesIO()
     wb.save(buffer)

@@ -13,8 +13,12 @@ document.addEventListener('DOMContentLoaded', () => {
     alpha: 0.05,
     lastTests: null,
     selectedTestId: 'promedio',
+    lastDists: null,
+    selectedDistId: 'uniforme',
+    distConfig: null,
     charts: {
-      scatter: null
+      scatter: null,
+      distHist: null
     }
   };
 
@@ -84,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Inicialización
   function init() {
     setupEventListeners();
+    initDistributions();
     setMethod('congruencial_mixto');
   }
 
@@ -653,6 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       updateResultsUI(result);
       runStatisticalTests(result.numbers);
+      runDistributionValidations(result.numbers);
 
     } catch (err) {
       console.error('Error al generar:', err);
@@ -790,6 +796,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const queryParams = new URLSearchParams({ method, alpha, ...params });
+      // Configuracion de la validacion de distribuciones (parametros, metodo y casos)
+      if (state.distConfig) {
+        queryParams.set('dist_config', JSON.stringify(state.distConfig));
+      }
       const downloadUrl = `/api/download/${filename}?${queryParams.toString()}`;
 
       // Redirección nativa del navegador: Chrome/Edge intercepta el encabezado Content-Disposition
@@ -956,6 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
     alphaDebounceTimer = setTimeout(() => {
       if (state.lastResult && state.lastResult.numbers && state.lastResult.numbers.length) {
         runStatisticalTests(state.lastResult.numbers);
+        runDistributionValidations(state.lastResult.numbers);
       }
     }, 250);
   }
@@ -1175,6 +1186,559 @@ document.addEventListener('DOMContentLoaded', () => {
   function escapeHtml(str) {
     if (str === null || str === undefined) return '';
     return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // =========================================================================
+  // VALIDACION DE LAS CONVERSIONES ESTADISTICAS (5 distribuciones)
+  // Paso 1: rᵢ generados → Paso 2: conversión → Paso 3: conteo (menor que /
+  // mayor que / entre a y b) → Paso 4: comparación con la probabilidad teórica.
+  // =========================================================================
+
+  const DIST_ORDER = ['uniforme', 'normal', 'erlang', 'poisson', 'binomial'];
+
+  // Debe coincidir con DEFAULT_CONFIG de core/distributions.py
+  const DIST_DEFAULTS = {
+    uniforme: { method: 'inversa', params: { a: 5, b: 15 },
+      cases: { menor: { op: '<', x: 8 }, mayor: { op: '>', x: 12 }, rango: { a: 7, b: 11 } } },
+    normal: { method: 'inversa', params: { mu: 50, sigma: 10 },
+      cases: { menor: { op: '<', x: 45 }, mayor: { op: '>', x: 60 }, rango: { a: 40, b: 55 } } },
+    erlang: { method: 'inversa', params: { k: 3, lam: 0.5 },
+      cases: { menor: { op: '<', x: 4 }, mayor: { op: '>', x: 8 }, rango: { a: 3, b: 7 } } },
+    poisson: { method: 'inversa', params: { lam: 4 },
+      cases: { menor: { op: '<', x: 3 }, mayor: { op: '>', x: 5 }, rango: { a: 2, b: 6 } } },
+    binomial: { method: 'inversa', params: { n: 10, p: 0.3 },
+      cases: { menor: { op: '<', x: 3 }, mayor: { op: '>', x: 4 }, rango: { a: 2, b: 5 } } }
+  };
+
+  const DIST_UI = {
+    uniforme: {
+      short: 'Uniforme (A, B)', icon: 'fa-grip-lines',
+      params: [
+        { key: 'a', sym: 'A', label: 'Límite inferior', hint: 'A < B', step: 'any' },
+        { key: 'b', sym: 'B', label: 'Límite superior', hint: 'B > A', step: 'any' }
+      ],
+      methods: [{ id: 'inversa', label: 'Transformada inversa', formula: 'x = A + (B − A)·r' }]
+    },
+    normal: {
+      short: 'Normal (μ, σ)', icon: 'fa-bell',
+      params: [
+        { key: 'mu', sym: 'μ', label: 'Media', hint: 'cualquier real', step: 'any' },
+        { key: 'sigma', sym: 'σ', label: 'Desviación estándar', hint: 'σ > 0', step: 'any', min: 0 }
+      ],
+      methods: [
+        { id: 'inversa', label: 'Transformada inversa', formula: 'x = μ + σ·Φ⁻¹(r)' },
+        { id: 'tlc', label: 'Suma de 12 rᵢ (TLC)', formula: 'x = μ + σ·(Σ₁¹² rⱼ − 6)' }
+      ]
+    },
+    erlang: {
+      short: 'Erlang (k, λ)', icon: 'fa-hourglass-half',
+      params: [
+        { key: 'k', sym: 'k', label: 'Fases (forma)', hint: 'entero 1–50', step: 1, min: 1 },
+        { key: 'lam', sym: 'λ', label: 'Tasa de cada fase', hint: 'λ > 0 · media = k/λ', step: 'any', min: 0 }
+      ],
+      methods: [
+        { id: 'inversa', label: 'Transformada inversa', formula: 'x = F⁻¹(r)' },
+        { id: 'convolucion', label: 'Producto de k rᵢ', formula: 'x = −(1/λ)·ln(Π rⱼ)' }
+      ]
+    },
+    poisson: {
+      short: 'Poisson (λ)', icon: 'fa-chart-column',
+      params: [
+        { key: 'lam', sym: 'λ', label: 'Tasa media', hint: '0 < λ ≤ 100', step: 'any', min: 0 }
+      ],
+      methods: [
+        { id: 'inversa', label: 'Transformada inversa', formula: 'F(x−1) ≤ r < F(x)' },
+        { id: 'multiplicativo', label: 'Multiplicativo', formula: 'Π rⱼ < e^(−λ)' }
+      ]
+    },
+    binomial: {
+      short: 'Binomial (n, p)', icon: 'fa-coins',
+      params: [
+        { key: 'n', sym: 'n', label: 'Ensayos', hint: 'entero 1–200', step: 1, min: 1 },
+        { key: 'p', sym: 'p', label: 'Probabilidad de éxito', hint: '0 < p < 1', step: 0.01, min: 0, max: 1 }
+      ],
+      methods: [
+        { id: 'inversa', label: 'Transformada inversa', formula: 'F(x−1) ≤ r < F(x)' },
+        { id: 'bernoulli', label: 'Suma de Bernoullis', formula: 'x = #{rⱼ < p}' }
+      ]
+    }
+  };
+
+  function cloneDeep(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+
+  function initDistributions() {
+    state.distConfig = cloneDeep(DIST_DEFAULTS);
+    renderDistSelector(null);
+    renderDistConfig();
+  }
+
+  let distDebounceTimer = null;
+  function scheduleDistValidation() {
+    clearTimeout(distDebounceTimer);
+    distDebounceTimer = setTimeout(() => {
+      if (state.lastResult && state.lastResult.numbers && state.lastResult.numbers.length) {
+        runDistributionValidations(state.lastResult.numbers);
+      }
+    }, 350);
+  }
+
+  let distRequestSeq = 0;
+  async function runDistributionValidations(numbers) {
+    if (!numbers || !numbers.length) return;
+    const seq = ++distRequestSeq;
+    const summaryEl = getEl('dists-summary-card');
+    if (summaryEl && !state.lastDists) {
+      summaryEl.innerHTML = '<div class="tests-loading"><i class="fa-solid fa-spinner fa-spin"></i> Convirtiendo y validando las 5 distribuciones...</div>';
+    }
+
+    try {
+      const response = await fetch('/api/distributions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numbers, alpha: getCurrentAlpha(), config: state.distConfig })
+      });
+      const data = await response.json();
+      if (seq !== distRequestSeq) return; // llegó una respuesta más nueva
+
+      if (!data.success) {
+        state.lastDists = null;
+        renderDistsError((data.errors && data.errors[0]) || 'No se pudieron validar las conversiones.');
+        return;
+      }
+      state.lastDists = data;
+      renderDistsSummary(data);
+      renderDistSelector(data.distributions);
+      const selected = data.distributions.find(d => d.id === state.selectedDistId) || data.distributions[0];
+      state.selectedDistId = selected.id;
+      renderDistDetail(selected, data);
+    } catch (err) {
+      console.error('Error al validar distribuciones:', err);
+      if (seq === distRequestSeq) renderDistsError('Error de conexión con el servidor al validar las distribuciones.');
+    }
+  }
+
+  function renderDistsError(message) {
+    const summaryEl = getEl('dists-summary-card');
+    if (summaryEl) {
+      summaryEl.innerHTML = `<div class="tests-error-banner"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(message)}</div>`;
+    }
+    const detailEl = getEl('dist-detail-panel');
+    if (detailEl) detailEl.innerHTML = '';
+  }
+
+  function renderDistsSummary(data) {
+    const el = getEl('dists-summary-card');
+    if (!el) return;
+    const s = data.summary || {};
+    let verdictClass = 'verdict-fail';
+    let verdictIcon = 'fa-circle-xmark';
+    if (s.verdict === 'VALIDADO') {
+      verdictClass = 'verdict-pass';
+      verdictIcon = 'fa-circle-check';
+    } else if (s.verdict === 'PARCIAL') {
+      verdictClass = 'verdict-warn';
+      verdictIcon = 'fa-triangle-exclamation';
+    }
+    el.innerHTML = `
+      <div class="tests-verdict-box ${verdictClass}">
+        <div class="tests-verdict-icon"><i class="fa-solid ${verdictIcon}"></i></div>
+        <div class="tests-verdict-meta">
+          <div class="tests-verdict-ratio">${s.passed} <span>/ ${s.total} conversiones validadas</span></div>
+          <div class="tests-verdict-text">${escapeHtml(s.verdict_label || '')}</div>
+        </div>
+        <div class="tests-verdict-alpha">
+          <span class="tests-verdict-alpha-label">rᵢ usados · Significancia</span>
+          <span class="tests-verdict-alpha-value">N = ${data.n_r} · α = ${(data.alpha * 100).toFixed(2)}%</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderDistSelector(dists) {
+    const el = getEl('dists-selector-row');
+    if (!el) return;
+    el.innerHTML = '';
+    const byId = {};
+    (dists || []).forEach(d => { byId[d.id] = d; });
+
+    DIST_ORDER.forEach((id, idx) => {
+      const d = byId[id];
+      const status = d ? d.status : 'pending';
+      const icon = status === 'pass' ? 'fa-circle-check'
+        : (status === 'fail' ? 'fa-circle-xmark'
+          : (status === 'pending' ? 'fa-circle-notch' : 'fa-circle-question'));
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `test-pill test-pill-${status}` + (id === state.selectedDistId ? ' active' : '');
+      const cases = d && d.cases && d.cases.length ? ` <span class="dist-pill-count">${d.cases_passed}/${d.cases.length}</span>` : '';
+      btn.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${idx + 1}. ${escapeHtml(DIST_UI[id].short)}</span>${cases}`;
+      btn.addEventListener('click', () => {
+        state.selectedDistId = id;
+        document.querySelectorAll('#dists-selector-row .test-pill').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        renderDistConfig();
+        const current = state.lastDists && state.lastDists.distributions.find(x => x.id === id);
+        if (current) renderDistDetail(current, state.lastDists);
+      });
+      el.appendChild(btn);
+    });
+  }
+
+  function opSymbol(op) {
+    return { '<': '<', '<=': '≤', '>': '>', '>=': '≥' }[op] || op;
+  }
+
+  // Panel de configuración de la distribución seleccionada (se re-dibuja solo al
+  // cambiar de distribución, para no perder el foco mientras se escribe)
+  function renderDistConfig() {
+    const el = getEl('dist-config-card');
+    if (!el || !state.distConfig) return;
+    const id = state.selectedDistId;
+    const ui = DIST_UI[id];
+    const cfg = state.distConfig[id];
+
+    const paramsHtml = ui.params.map(pm => `
+      <div class="input-group">
+        <div class="input-label-row">
+          <label class="input-label" for="dist-param-${pm.key}"><span class="input-var-symbol">${pm.sym}</span> ${pm.label}:</label>
+          <span class="input-helper-badge">${pm.hint}</span>
+        </div>
+        <input type="number" id="dist-param-${pm.key}" class="custom-input" data-dist-param="${pm.key}"
+               value="${cfg.params[pm.key]}" step="${pm.step}" ${pm.min !== undefined ? `min="${pm.min}"` : ''} ${pm.max !== undefined ? `max="${pm.max}"` : ''}>
+      </div>
+    `).join('');
+
+    const methodsHtml = ui.methods.map(m => `
+      <button type="button" class="case-pill dist-method-pill ${cfg.method === m.id ? 'active' : ''}" data-dist-method="${m.id}" title="${escapeHtml(m.formula)}">
+        <span class="dist-method-name">${escapeHtml(m.label)}</span>
+        <span class="dist-method-formula">${escapeHtml(m.formula)}</span>
+      </button>
+    `).join('');
+
+    const c = cfg.cases;
+    el.innerHTML = `
+      <div class="dist-config-grid">
+        <div class="dist-config-block">
+          <div class="dist-config-title"><i class="fa-solid fa-sliders"></i> Parámetros de la distribución</div>
+          <div class="dist-params-grid">${paramsHtml}</div>
+          <div class="dist-config-title dist-config-title-sub"><i class="fa-solid fa-right-left"></i> Fórmula de conversión (Paso 2)</div>
+          <div class="case-pill-group dist-method-group">${methodsHtml}</div>
+        </div>
+        <div class="dist-config-block">
+          <div class="dist-config-title"><i class="fa-solid fa-filter"></i> Casos a validar (Paso 3: conteo)</div>
+          <div class="dist-case-inputs">
+            <div class="dist-case-input-row">
+              <span class="dist-case-tag">Menor que</span>
+              <span class="dist-case-x">P(X</span>
+              <select class="custom-select dist-op-select" data-dist-case="menor" data-dist-field="op" aria-label="Operador menor que">
+                <option value="<" ${c.menor.op === '<' ? 'selected' : ''}>&lt;</option>
+                <option value="<=" ${c.menor.op === '<=' ? 'selected' : ''}>≤</option>
+              </select>
+              <input type="number" class="custom-input dist-case-num" data-dist-case="menor" data-dist-field="x" value="${c.menor.x}" step="any" aria-label="Valor x del caso menor que">
+              <span class="dist-case-x">)</span>
+            </div>
+            <div class="dist-case-input-row">
+              <span class="dist-case-tag">Mayor que</span>
+              <span class="dist-case-x">P(X</span>
+              <select class="custom-select dist-op-select" data-dist-case="mayor" data-dist-field="op" aria-label="Operador mayor que">
+                <option value=">" ${c.mayor.op === '>' ? 'selected' : ''}>&gt;</option>
+                <option value=">=" ${c.mayor.op === '>=' ? 'selected' : ''}>≥</option>
+              </select>
+              <input type="number" class="custom-input dist-case-num" data-dist-case="mayor" data-dist-field="x" value="${c.mayor.x}" step="any" aria-label="Valor x del caso mayor que">
+              <span class="dist-case-x">)</span>
+            </div>
+            <div class="dist-case-input-row">
+              <span class="dist-case-tag">Rango</span>
+              <span class="dist-case-x">P(</span>
+              <input type="number" class="custom-input dist-case-num" data-dist-case="rango" data-dist-field="a" value="${c.rango.a}" step="any" aria-label="Límite a del rango">
+              <span class="dist-case-x">≤ X ≤</span>
+              <input type="number" class="custom-input dist-case-num" data-dist-case="rango" data-dist-field="b" value="${c.rango.b}" step="any" aria-label="Límite b del rango">
+              <span class="dist-case-x">)</span>
+            </div>
+          </div>
+          <button type="button" class="panel-action-link dist-reset-link" id="btn-dist-reset">
+            <i class="fa-solid fa-rotate-left"></i> Valores por defecto de esta distribución
+          </button>
+        </div>
+      </div>
+    `;
+
+    el.querySelectorAll('[data-dist-param]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const v = parseFloat(inp.value);
+        if (!Number.isFinite(v)) return;
+        state.distConfig[id].params[inp.getAttribute('data-dist-param')] = v;
+        scheduleDistValidation();
+      });
+    });
+    el.querySelectorAll('[data-dist-case]').forEach(inp => {
+      const handler = () => {
+        const caseId = inp.getAttribute('data-dist-case');
+        const field = inp.getAttribute('data-dist-field');
+        if (field === 'op') {
+          state.distConfig[id].cases[caseId].op = inp.value;
+        } else {
+          const v = parseFloat(inp.value);
+          if (!Number.isFinite(v)) return;
+          state.distConfig[id].cases[caseId][field] = v;
+        }
+        scheduleDistValidation();
+      };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+    el.querySelectorAll('[data-dist-method]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.distConfig[id].method = btn.getAttribute('data-dist-method');
+        el.querySelectorAll('[data-dist-method]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        scheduleDistValidation();
+      });
+    });
+    const resetBtn = getEl('btn-dist-reset');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        state.distConfig[id] = cloneDeep(DIST_DEFAULTS[id]);
+        renderDistConfig();
+        scheduleDistValidation();
+      });
+    }
+  }
+
+  function fmtP(v) {
+    return (v === null || v === undefined) ? '—' : Number(v).toFixed(6);
+  }
+
+  function fmtShort(v) {
+    if (v === null || v === undefined) return '—';
+    const n = Number(v);
+    if (Number.isInteger(n)) return String(n);
+    return n.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  }
+
+  function renderDistDetail(d, all) {
+    const el = getEl('dist-detail-panel');
+    if (!el || !d) return;
+
+    if (d.status === 'error') {
+      el.innerHTML = `
+        <div class="test-detail-header"><h4>${d.order}. ${escapeHtml(d.name)}</h4></div>
+        <div class="tests-error-banner"><i class="fa-solid fa-triangle-exclamation"></i>
+          ${(d.errors || []).map(escapeHtml).join(' ')}</div>
+      `;
+      destroyDistChart();
+      return;
+    }
+
+    const genName = (state.lastResult && state.lastResult.method_name) || 'el generador seleccionado';
+    const nums = (state.lastResult && state.lastResult.numbers) || [];
+    const firstR = nums.slice(0, 3).map(r => Number(r).toFixed(4)).join(', ');
+    const firstX = (d.sample_table.rows || []).slice(0, 3).map(r => fmtShort(r.x)).join(', ');
+
+    const countLines = d.cases.map(c => `${c.label}: #{ ${c.condition.slice(2, -1).replace(/X/g, 'xᵢ')} } = ${c.count}   →   P_sim = ${c.sim_expr}`);
+
+    const steps = [
+      {
+        label: 'Paso 1 · Generación de los números pseudoaleatorios',
+        formula: `Se toman los N = ${d.n_r} rᵢ ∈ [0, 1) generados con ${genName}.`,
+        result: `r₁, r₂, r₃, … = ${firstR}${nums.length > 3 ? ', …' : ''}`
+      },
+      {
+        label: `Paso 2 · Conversión estadística (${d.method_label})`,
+        formula: `${d.conversion_formula}     →     ${d.conversion_formula_params}`,
+        result: `${d.n_r} rᵢ → ${d.n_values} valores xᵢ (${d.r_per_value} rᵢ por valor).  x₁, x₂, x₃, … = ${firstX}${d.n_values > 3 ? ', …' : ''}`
+      },
+      {
+        label: 'Paso 3 · Conteo: menor que, mayor que y rango (probabilidad simulada)',
+        formula: 'P_sim = (cantidad de xᵢ que cumplen la condición) / n',
+        result: countLines.join('\n')
+      },
+      {
+        label: 'Paso 4 · Validación contra la probabilidad teórica',
+        formula: `Se acepta que P_sim = P_teo si |P_sim − P_teo| ≤ Z_(α/2)·√(P_teo(1 − P_teo)/n),  con Z_(α/2) = ${d.z}`,
+        result: d.cases.map(c => `${c.condition}: ${c.decision_expr} → ${c.validated ? 'VALIDADA' : 'NO VALIDADA'}`).join('\n')
+      }
+    ];
+
+    const stepsHtml = steps.map((s, idx) => `
+      <div class="test-step-row">
+        <div class="test-step-num">${idx + 1}</div>
+        <div class="test-step-body">
+          <div class="test-step-label">${escapeHtml(s.label)}</div>
+          <div class="test-step-formula">${escapeHtml(s.formula)}</div>
+          <div class="test-step-result dist-multiline">${escapeHtml(s.result)}</div>
+        </div>
+      </div>
+    `).join('');
+
+    const casesHtml = d.cases.map(c => `
+      <div class="dist-case-card ${c.validated ? 'pass' : 'fail'}">
+        <div class="dist-case-card-head">
+          <span class="dist-case-tag">${escapeHtml(c.label)}</span>
+          <span class="test-stat-verdict ${c.validated ? 'pass' : 'fail'}">
+            <i class="fa-solid ${c.validated ? 'fa-circle-check' : 'fa-circle-xmark'}"></i>
+            ${c.validated ? 'VALIDADA' : 'NO VALIDADA'}
+          </span>
+        </div>
+        <div class="dist-case-condition">${escapeHtml(c.condition)}</div>
+        <div class="dist-prob-compare">
+          <div class="test-stat-box">
+            <span class="test-stat-label">P simulada (conteo)</span>
+            <span class="test-stat-value">${fmtP(c.p_sim)}</span>
+            <span class="dist-prob-sub">${c.count} / ${c.n}</span>
+          </div>
+          <div class="test-stat-vs">${c.validated ? '≈' : '≠'}</div>
+          <div class="test-stat-box">
+            <span class="test-stat-label">P teórica (fórmula)</span>
+            <span class="test-stat-value">${fmtP(c.p_theo)}</span>
+            <span class="dist-prob-sub">esperados ≈ ${fmtShort(c.expected_count)}</span>
+          </div>
+        </div>
+        <div class="dist-diff-row">
+          <span>|Diferencia| <strong>${fmtP(c.diff)}</strong></span>
+          <span>${c.validated ? '≤' : '>'}</span>
+          <span>Margen <strong>${fmtP(c.margin)}</strong></span>
+          ${c.rel_error_pct !== null && c.rel_error_pct !== undefined ? `<span class="dist-rel">error relativo ${c.rel_error_pct}%</span>` : ''}
+        </div>
+        <details class="dist-theo-details">
+          <summary>Ver cálculo de la probabilidad teórica</summary>
+          <div class="test-step-formula dist-multiline">${escapeHtml(c.theo_lines.join('\n'))}</div>
+          <div class="test-step-formula">Margen = ${escapeHtml(c.margin_expr)}</div>
+          <div class="test-step-formula">Banda de aceptación: [${fmtP(c.band_low)}, ${fmtP(c.band_high)}]</div>
+        </details>
+      </div>
+    `).join('');
+
+    const m = d.moments || {};
+    const momentsHtml = `
+      <div class="dist-moments-row">
+        <div class="dist-moment">
+          <span class="test-stat-label">Media simulada x̄</span>
+          <span class="test-stat-value">${fmtShort(m.mean_sim)}</span>
+        </div>
+        <div class="dist-moment">
+          <span class="test-stat-label">Media teórica ${escapeHtml(m.mean_formula || '')}</span>
+          <span class="test-stat-value">${fmtShort(m.mean_theo)}</span>
+        </div>
+        <div class="dist-moment">
+          <span class="test-stat-label">Varianza simulada s²</span>
+          <span class="test-stat-value">${fmtShort(m.var_sim)}</span>
+        </div>
+        <div class="dist-moment">
+          <span class="test-stat-label">Varianza teórica ${escapeHtml(m.var_formula || '')}</span>
+          <span class="test-stat-value">${fmtShort(m.var_theo)}</span>
+        </div>
+      </div>
+    `;
+
+    const passedAll = d.status === 'pass';
+    let conclusion;
+    if (d.status === 'inconclusive') {
+      conclusion = `<div class="test-inconclusive-banner"><i class="fa-solid fa-circle-question"></i><span>Validación no concluyente: se obtuvieron muy pocos valores convertidos (${d.n_values}).</span></div>`;
+    } else {
+      conclusion = `<div class="test-conclusion-box ${passedAll ? 'pass' : 'fail'}">${passedAll
+        ? `La conversión a la ${escapeHtml(d.name)} está VALIDADA: en los ${d.cases.length} casos la probabilidad obtenida contando los números convertidos coincide con la probabilidad teórica (${d.cases_passed}/${d.cases.length}).`
+        : `La conversión a la ${escapeHtml(d.name)} NO queda validada: ${d.cases.length - d.cases_passed} de ${d.cases.length} casos se salen del margen de error. Pruebe con más números generados o revise la calidad de la secuencia.`}</div>`;
+    }
+
+    const notesHtml = (d.notes && d.notes.length) ? `
+      <div class="test-notes-box">
+        <i class="fa-solid fa-circle-info"></i>
+        <ul>${d.notes.map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>
+      </div>
+    ` : '';
+
+    el.innerHTML = `
+      <div class="test-detail-header dist-detail-header">
+        <h4>${d.order}. ${escapeHtml(d.name)} <span class="dist-params-badge">${escapeHtml(d.params_label)}</span></h4>
+        <span class="algo-badge">${escapeHtml(d.method_label)}</span>
+      </div>
+      ${conclusion}
+      <div class="dist-case-cards">${casesHtml}</div>
+      <div class="test-decision-rule"><strong>Regla de decisión:</strong> la conversión se considera correcta si la probabilidad simulada y la teórica son iguales dentro del margen de error de una proporción, |P_sim − P_teo| ≤ Z_(α/2)·√(P_teo(1 − P_teo)/n), con α = ${(all.alpha * 100).toFixed(2)}%.</div>
+      <div class="test-steps-list">${stepsHtml}</div>
+      <div class="test-data-table-wrapper">
+        <h5>Frecuencia observada vs. esperada (${d.discrete ? 'valores discretos' : 'intervalos de clase'})</h5>
+        <div class="dist-chart-container"><canvas id="chart-dist-hist"></canvas></div>
+      </div>
+      ${momentsHtml}
+      ${notesHtml}
+      ${renderTestDataTable(d.sample_table, 'Tabla de conversión rᵢ → xᵢ y conteo de cada caso (✓ = cumple)')}
+    `;
+
+    renderDistChart(d);
+  }
+
+  function destroyDistChart() {
+    if (state.charts.distHist) {
+      state.charts.distHist.destroy();
+      state.charts.distHist = null;
+    }
+  }
+
+  function renderDistChart(d) {
+    destroyDistChart();
+    const canvas = getEl('chart-dist-hist');
+    if (!canvas || typeof Chart === 'undefined' || !d.histogram) return;
+    const h = d.histogram;
+    state.charts.distHist = new Chart(canvas.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: h.labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Frecuencia observada (conteo de xᵢ)',
+            data: h.observed,
+            backgroundColor: 'rgba(52, 211, 153, 0.55)',
+            borderColor: 'rgba(52, 211, 153, 0.95)',
+            borderWidth: 1,
+            order: 2
+          },
+          {
+            type: 'line',
+            label: 'Frecuencia esperada (n × probabilidad teórica)',
+            data: h.expected,
+            borderColor: '#C084FC',
+            backgroundColor: 'rgba(192, 132, 252, 0.2)',
+            borderWidth: 2,
+            pointRadius: h.discrete ? 3 : 2,
+            tension: h.discrete ? 0 : 0.3,
+            order: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 200 },
+        scales: {
+          x: {
+            title: { display: true, text: h.discrete ? 'Valor de x' : 'Intervalo de x', color: '#C4B5FD', font: { family: 'Plus Jakarta Sans', size: 12, weight: '600' } },
+            ticks: { color: '#8B7CA8', font: { family: 'JetBrains Mono', size: 10 }, maxRotation: 60, autoSkip: true },
+            grid: { color: 'rgba(168, 85, 247, 0.06)' }
+          },
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Frecuencia', color: '#C4B5FD', font: { family: 'Plus Jakarta Sans', size: 12, weight: '600' } },
+            ticks: { color: '#8B7CA8', font: { family: 'JetBrains Mono' } },
+            grid: { color: 'rgba(168, 85, 247, 0.08)' }
+          }
+        },
+        plugins: {
+          legend: { labels: { color: '#F3E8FF', font: { family: 'Plus Jakarta Sans', weight: '600' } } },
+          tooltip: {
+            backgroundColor: 'rgba(20, 13, 38, 0.94)',
+            titleFont: { family: 'Plus Jakarta Sans', weight: 'bold' },
+            bodyFont: { family: 'JetBrains Mono' },
+            borderColor: 'rgba(168, 85, 247, 0.3)',
+            borderWidth: 1
+          }
+        }
+      }
+    });
   }
 
   // Inicializar

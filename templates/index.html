@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
   <!-- Estilos del Studio -->
-  <link rel="stylesheet" href="/static/css/style.css?v=31">
+  <link rel="stylesheet" href="/static/css/style.css?v=32">
 
   <!-- Chart.js para visualización de dispersión -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -155,7 +155,7 @@
               </select>
               <input type="number" id="input-alpha-custom" class="custom-input" style="display:none; margin-top:8px;" min="0.1" max="50" step="0.1" value="5" placeholder="% de error, ej: 2.5">
             </div>
-            <p class="stat-tests-config-hint">Se ejecutan automáticamente las 7 pruebas al generar la secuencia.</p>
+            <p class="stat-tests-config-hint">Se ejecutan automáticamente las 7 pruebas y la validación de las 5 distribuciones al generar la secuencia.</p>
           </div>
 
           <!-- Matriz de Acciones -->
@@ -214,6 +214,9 @@
             </button>
             <button class="viz-tab-btn" data-viz="tests" id="btn-viz-tests">
               <i class="fa-solid fa-vial-circle-check"></i> Pruebas Estadísticas
+            </button>
+            <button class="viz-tab-btn" data-viz="dists" id="btn-viz-dists">
+              <i class="fa-solid fa-scale-balanced"></i> Validación de Distribuciones
             </button>
           </div>
 
@@ -287,6 +290,31 @@
             </div>
           </div>
 
+          <!-- Panel 5: Validacion de las Conversiones Estadisticas (Distribuciones) -->
+          <div class="tab-content-panel" id="panel-viz-dists">
+            <div class="analytics-info-banner">
+              <i class="fa-solid fa-scale-balanced"></i>
+              <div>
+                <h4>Validación de las Conversiones Estadísticas</h4>
+                <p>
+                  Los rᵢ generados se convierten a cada distribución con su fórmula. Luego se <strong>cuenta</strong> cuántos valores son menores que, mayores que o están entre dos valores, y esa probabilidad simulada se compara con la probabilidad teórica de la fórmula de la distribución. Si ambas coinciden (dentro del margen de error del nivel α elegido), la conversión queda <strong>VALIDADA</strong>.
+                </p>
+              </div>
+            </div>
+            <div class="tests-summary-card" id="dists-summary-card">
+              <!-- Resumen X/5 conversiones validadas, inyectado por JS -->
+            </div>
+            <div class="tests-selector-row" id="dists-selector-row">
+              <!-- Selector de las 5 distribuciones, inyectado por JS -->
+            </div>
+            <div class="dist-config-card" id="dist-config-card">
+              <!-- Parametros, metodo de conversion y casos a validar, inyectado por JS -->
+            </div>
+            <div class="test-detail-panel" id="dist-detail-panel">
+              <!-- Paso a paso de la validacion de la distribucion seleccionada, inyectado por JS -->
+            </div>
+          </div>
+
         </div>
 
       </section>
@@ -311,7 +339,7 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Script Principal Studio -->
-  <script src="/static/js/studio.js?v=204"></script>
+  <script src="/static/js/studio.js?v=205"></script>
 
 </body>
 </html>

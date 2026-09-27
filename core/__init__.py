@@ -1,5 +1,6 @@
 """
-Core PRNG package containing generation algorithms, validators, recommenders, statistical tests, and Excel exporter.
+Core PRNG package containing generation algorithms, validators, recommenders, statistical tests,
+statistical conversions validation (distributions), and Excel exporter.
 """
 from .validators import validate_gclm, validate_gcm, validate_cuadrados_medios, validate_productos_medios, validate_bbs
 from .generators import generate_gclm, generate_gcm, generate_cuadrados_medios, generate_productos_medios, generate_bbs
@@ -12,3 +13,4 @@ from .recommenders import (
 )
 from .stats import calculate_stats
 from .random_tests import run_all_tests
+from .distributions import run_distribution_validations
